@@ -15,6 +15,7 @@ usage() {
 	Usage: $0 [options]
 
 	Options include:
+	    --test-dir=DIR         the main directory for tests ($arch)
 	    --arch=ARCH            architecture to compile for ($arch)
 	    --cross-prefix=PREFIX  cross compiler prefix
 	    --cc=CC		   c compiler to use ($cc)
@@ -33,6 +34,9 @@ while [[ "$1" = -* ]]; do
 	opt="${opt%%=*}"
     fi
     case "$opt" in
+	--test-dir)
+	    testdir="$arg"
+	    ;;
 	--prefix)
 	    prefix="$arg"
 	    ;;
@@ -62,6 +66,18 @@ while [[ "$1" = -* ]]; do
 	    ;;
     esac
 done
+if [ -z "$testdir" -a \( "$arch" = "i386" -o "$arch" = "x86_64" \) ]; then
+    testdir=x86
+elif [ -z "$testdir" ]; then
+    testdir=$arch
+fi
+if [ ! -d $testdir ]; then
+    echo "$testdir does not exist!"
+    exit 1
+fi
+if [ -f $testdir/run ]; then
+    ln -fs $testdir/run $testdir-run
+fi
 
 # check for dependent 32 bit libraries
 cat << EOF > lib_test.c
@@ -89,4 +105,5 @@ LD=$cross_prefix$ld
 OBJCOPY=$cross_prefix$objcopy
 AR=$cross_prefix$ar
 API=$api
+TEST_DIR=$testdir
 EOF
