@@ -31,6 +31,14 @@ int strcmp(const char *a, const char *b)
     return *a - *b;
 }
 
+char *strchr(const char *s, int c)
+{
+    while (*s != (char)c)
+	if (*s++ == '\0')
+	    return NULL;
+    return (char *)s;
+}
+
 void *memset(void *s, int c, size_t n)
 {
     size_t i;
@@ -52,6 +60,46 @@ void *memcpy(void *dest, const void *src, size_t n)
         a[i] = b[i];
 
     return dest;
+}
+
+int memcmp(const void *s1, const void *s2, size_t n)
+{
+    const unsigned char *a = s1, *b = s2;
+    int ret = 0;
+
+    while (n--) {
+	ret = *a - *b;
+	if (ret)
+	    break;
+	++a, ++b;
+    }
+    return ret;
+}
+
+void *memmove(void *dest, const void *src, size_t n)
+{
+    const unsigned char *s = src;
+    unsigned char *d = dest;
+
+    if (d <= s) {
+	while (n--)
+	    *d++ = *s++;
+    } else {
+	d += n, s += n;
+	while (n--)
+	    *--d = *--s;
+    }
+    return dest;
+}
+
+void *memchr(const void *s, int c, size_t n)
+{
+    const unsigned char *str = s, chr = (unsigned char)c;
+
+    while (n--)
+	if (*str++ == chr)
+	    return (void *)(str - 1);
+    return NULL;
 }
 
 long atol(const char *ptr)

@@ -21,6 +21,13 @@ cflatobjs := \
 	lib/string.o \
 	lib/report.o
 
+# libfdt paths
+LIBFDT_objdir = lib/libfdt
+LIBFDT_srcdir = lib/libfdt
+LIBFDT_archive = $(LIBFDT_objdir)/libfdt.a
+LIBFDT_include = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_INCLUDES))
+LIBFDT_version = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_VERSION))
+
 #include architecure specific make rules
 include config/config-$(ARCH).mak
 
@@ -46,6 +53,11 @@ LDFLAGS += -pthread -lrt
 $(libcflat): $(cflatobjs)
 	$(AR) rcs $@ $^
 
+include $(LIBFDT_srcdir)/Makefile.libfdt
+$(LIBFDT_archive): CFLAGS += -ffreestanding -I lib -I lib/libfdt -Wno-sign-compare
+$(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
+	$(AR) rcs $@ $^
+
 %.o: %.S
 	$(CC) $(CFLAGS) -c -nostdlib -o $@ $<
 
@@ -58,10 +70,15 @@ install:
 clean: arch_clean
 	$(RM) lib/.*.d $(libcflat) $(cflatobjs)
 
-distclean: clean
+libfdt_clean:
+	$(RM) $(LIBFDT_archive) \
+	$(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS)) \
+	$(LIBFDT_objdir)/.*.d
+
+distclean: clean libfdt_clean
 	$(RM) config.mak $(TEST_DIR)-run test.log msr.out cscope.*
 
-cscope: common_dirs = lib
+cscope: common_dirs = lib lib/libfdt
 cscope:
 	$(RM) ./cscope.*
 	find $(TEST_DIR) lib/$(TEST_DIR) $(common_dirs) -maxdepth 1 \
