@@ -31,3 +31,9 @@ void __setup_args(void)
     }
     __argc = argv - __argv;
 }
+
+void setup_args(char *args)
+{
+    __args = args;
+    __setup_args();
+}
