@@ -70,4 +70,13 @@ extern long atol(const char *ptr);
 
 void report(const char *msg_fmt, bool pass, ...);
 int report_summary(void);
+
+#define abort() exit(64)		/* 129 exit status from qemu */
+#define assert(cond)							\
+do {									\
+	if (!(cond))							\
+		printf("%s:%d: assert failed\n", __FILE__, __LINE__),	\
+		abort();						\
+} while (0)
+
 #endif
