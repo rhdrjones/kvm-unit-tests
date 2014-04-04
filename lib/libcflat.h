@@ -65,6 +65,9 @@ extern long atol(const char *ptr);
 #define ARRAY_SIZE(_a)  (sizeof(_a)/sizeof((_a)[0]))
 
 #define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
+#define container_of(ptr, type, member) ({				\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);		\
+	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define NULL ((void *)0UL)
 
