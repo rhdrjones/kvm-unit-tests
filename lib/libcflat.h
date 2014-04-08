@@ -21,60 +21,47 @@
 #define __LIBCFLAT_H
 
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+#include "string.h"
 
 #define __unused __attribute__((__unused__))
 
 #define xstr(s) xxstr(s)
 #define xxstr(s) #s
 
-typedef unsigned char u8;
-typedef signed char s8;
-typedef unsigned short u16;
-typedef signed short s16;
-typedef unsigned u32;
-typedef signed s32;
-typedef unsigned long ulong;
-typedef unsigned long long u64;
-typedef signed long long s64;
-typedef unsigned long size_t;
-typedef _Bool bool;
+typedef uint8_t		u8;
+typedef int8_t		s8;
+typedef uint16_t	u16;
+typedef int16_t		s16;
+typedef uint32_t	u32;
+typedef int32_t		s32;
+typedef uint64_t	u64;
+typedef int64_t		s64;
+typedef unsigned long	ulong;
 
-#define true 1
+typedef _Bool		bool;
 #define false 0
+#define true  1
 
+extern void puts(const char *s);
 extern void exit(int code);
-
-extern unsigned long strlen(const char *buf);
-extern char *strcat(char *dest, const char *src);
-extern int strcmp(const char *a, const char *b);
-extern char *strchr(const char *s, int c);
 
 extern int printf(const char *fmt, ...);
 extern int snprintf(char *buf, int size, const char *fmt, ...);
 extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
-
-extern void puts(const char *s);
-
-extern void *memset(void *s, int c, size_t n);
-extern void *memcpy(void *dest, const void *src, size_t n);
-extern int memcmp(const void *s1, const void *s2, size_t n);
-extern void *memmove(void *dest, const void *src, size_t n);
-extern void *memchr(const void *s, int c, size_t n);
-
 extern long atol(const char *ptr);
-#define ARRAY_SIZE(_a)  (sizeof(_a)/sizeof((_a)[0]))
-
-#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
-#define container_of(ptr, type, member) ({				\
-	const typeof( ((type *)0)->member ) *__mptr = (ptr);		\
-	(type *)( (char *)__mptr - offsetof(type,member) );})
-
-#define NULL ((void *)0UL)
 
 void report(const char *msg_fmt, bool pass, ...);
 int report_summary(void);
 
-#define abort() exit(64)		/* 129 exit status from qemu */
+#define ARRAY_SIZE(_a) (sizeof(_a)/sizeof((_a)[0]))
+
+#define container_of(ptr, type, member) ({				\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);		\
+	(type *)( (char *)__mptr - offsetof(type,member) );})
+
+#define abort() exit(64) /* 129 exit status from qemu */
 #define assert(cond)							\
 do {									\
 	if (!(cond))							\

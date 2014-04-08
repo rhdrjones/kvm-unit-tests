@@ -20,6 +20,12 @@ char *strcat(char *dest, const char *src)
     return dest;
 }
 
+char *strcpy(char *dest, const char *src)
+{
+    *dest = 0;
+    return strcat(dest, src);
+}
+
 int strcmp(const char *a, const char *b)
 {
     while (*a == *b) {
