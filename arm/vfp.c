@@ -12,8 +12,8 @@
 #include "asm/processor.h"
 
 #define TESTGRP "vfc"
-#define DOUBLE_PLUS_INF  0x7ff00000
-#define DOUBLE_MINUS_INF 0xfff00000
+#define DOUBLE_PLUS_INF  0x7ff0000000000000
+#define DOUBLE_MINUS_INF 0xfff0000000000000
 
 static char testname[64];
 
@@ -106,6 +106,29 @@ static int test_fabsd()
 	if (result != 1.56473475206407319770818276083446107804775238037109375)
 		return 0;
 
+	printf("Testing fabsd -inf\n");
+
+	union {
+		double inf;
+		unsigned long long input;
+	} data;
+
+	union {
+		double d;
+		unsigned long long input;
+	} result2;
+
+	data.input = DOUBLE_PLUS_INF;
+	result2.input = DOUBLE_MINUS_INF;
+	
+	asm volatile(
+		"fabsd %[result], %[result]"	"\n\t"
+		: [result]"+w" (result2.d)
+	);
+
+	if( data.input != result2.input)
+		return 0;
+
 	return 1;
 }
 
@@ -166,7 +189,8 @@ static int test_faddd()
 		: [num]"w" (data.inf)
 	);
 
-	if( data.input == result2.input)
+
+	if( data.input != result2.input)
 		return 0;
 
 	return 1;
