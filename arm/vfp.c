@@ -12,8 +12,11 @@
 #include "asm/processor.h"
 
 #define TESTGRP "vfc"
-#define DOUBLE_PLUS_INF  0x7ff0000000000000
-#define DOUBLE_MINUS_INF 0xfff0000000000000
+
+#define DOUBLE_PLUS_INF		0x7ff0000000000000
+#define DOUBLE_MINUS_INF	0xfff0000000000000
+#define DOUBLE_PLUS_NULL	0x0000000000000000
+#define DOUBLE_MINUS_NULL	0x8000000000000000
 
 static char testname[64];
 
@@ -92,9 +95,8 @@ static inline void disable_vfp()
 }
 
 
-static int test_fabsd()
+static void test_fabsd()
 {
-	printf("Testing fabsd\n");
 	double volatile result = -1.56473475206407319770818276083446107804775238037109375;
 
 	asm volatile(
@@ -103,10 +105,8 @@ static int test_fabsd()
 		: 
 	);
 
-	if (result != 1.56473475206407319770818276083446107804775238037109375)
-		return 0;
+	report("%s[%s]", (result == 1.56473475206407319770818276083446107804775238037109375), testname, "-num");
 
-	printf("Testing fabsd -inf\n");
 
 	union {
 		double inf;
@@ -126,17 +126,14 @@ static int test_fabsd()
 		: [result]"+w" (result2.d)
 	);
 
-	if( data.input != result2.input)
-		return 0;
+	report("%s[%s]", ( data.input == result2.input), testname, "-inf");
 
-	return 1;
 }
 
 
-static int test_faddd()
+static void test_faddd()
 {
 	
-	printf("Testing faddd 1.328125+(-0.0625)\n");
 	double result = 1.328125;
 
 	asm volatile(
@@ -144,16 +141,14 @@ static int test_faddd()
 		: [result]"+w" (result)
 		: [num]"w" (-0.0625)
 	);
-
-	if (result != 1.265625)
-		return 0;
+	report("%s[%s]", (result == 1.265625), testname,"num");
 
 
-	printf(
-			"Testing faddd for maximal precision\n"
-			" 1.11000101010011110100011101010110010101110100011000111\n"
-			"+1.11111010001110001010011000011000110001000001010011101\n"
-	);
+	/*
+	 * Testing faddd for maximal precision
+	 *  1.11000101010011110100011101010110010101110100011000111
+	 * +1.11111010001110001010011000011000110001000001010011101
+	 */
 	
 	result = 1.0;
 	
@@ -163,13 +158,10 @@ static int test_faddd()
 		: [num1]"w" (1.77074094636852741313504111531074158847332000732421875),
 		  [num2]"w" (1.97742689232480339800446245135390199720859527587890625)
 	);
-
-	if (result != 3.748167838693330811139503566664643585681915283203125)
-		return 0;
+	report("%s[%s]", (result == 3.748167838693330811139503566664643585681915283203125), testname, "max precision");
 
 
-	printf("Testing faddd (inf)+(inf)\n");
-	
+
 	union {
 		double inf;
 		unsigned long long input;
@@ -189,19 +181,15 @@ static int test_faddd()
 		: [num]"w" (data.inf)
 	);
 
+	report("%s[%s]", ( data.input == result2.input), testname, "(inf)+(inf)");
 
-	if( data.input != result2.input)
-		return 0;
-
-	return 1;
 }
 
 
 
 
-static int test_fcmpd()
+static void test_fcmpd()
 {
-	printf("Testing fcmpd for correct NF set\n");
 	double result = 0.0;
 	asm volatile(
 		"fcmpd %[num1], %[num2]"	"\n\t"
@@ -211,15 +199,16 @@ static int test_fcmpd()
 		: [num1]"w" (1.5),
 		  [num2]"w" (-1.2)
 	);
-
+	
 	// jump destination for errors
 	if(result == 1.2) {
 		asm volatile(".found_error_fcmp:");
-		return 0;
+		report("%s", 0, testname);
+		return;
 	}
+	report("%s[%s]", 1, testname,"NF");
 	
-	
-	printf("Testing fcmpd for correct CF set\n");;
+
 	asm volatile(
 		"fcmpd %[num1], %[num2]"	"\n\t"
 		"fmstat"					"\n\t"
@@ -228,9 +217,9 @@ static int test_fcmpd()
 		: [num1]"w" (1.5),
 		  [num2]"w" (2.0)
 	);
+	report("%s[%s]", 1, testname,"CF");
 
-
-	printf("Testing fcmpd for correct ZF set\n");
+	
 	asm volatile(
 		"fcmpd %[num1], %[num2]"	"\n\t"
 		"fmstat"					"\n\t"
@@ -239,13 +228,36 @@ static int test_fcmpd()
 		: [num1]"w" (-1.5),
 		  [num2]"w" (1.5)
 	);
+	report("%s[%s]", 1, testname,"ZF");
 
-	return 1;
+
+	union {
+		double d;
+		unsigned long long input;
+	} num1;
+
+	union {
+		double d;
+		unsigned long long input;
+	} num2;
+
+	num1.input = DOUBLE_PLUS_NULL;
+	num2.input = DOUBLE_MINUS_NULL;
+	
+	asm volatile(
+		"fcmpd %[num1], %[num2]"	"\n\t"
+		"fmstat"					"\n\t"
+		"bne .found_error_fcmp"		"\n\t"
+		:
+		: [num1]"w" (num1.d),
+		  [num2]"w" (num2.d)
+	);
+	report("%s[%s]", 1, testname,"+0.0,-0.0");
+	
 }
 
-static int test_fsubd()
+static void test_fsubd()
 {
-	printf("Testing fsubd 2.75-0.25\n");
 	double volatile result = 2.75;
 
 	asm volatile(
@@ -253,16 +265,13 @@ static int test_fsubd()
 		: [result]"+w" (result)
 		: [num]"w" (0.25)
 	);
+	report("%s[%s]", (result == 2.5), testname,"num");
 
-	if(result != 2.5)
-		return 0;
-
-
-	printf(
-			"Testing fsubd for maximal precision\n"
-			" 1.11000101110000010100101000011001011010000001010101111\n"
-			"-1111.11111010101001100110101110100001011000110011010001\n"
-	);
+	/*
+	 * Testing fsubd for maximal precision
+	 *  1.11000101110000010100101000011001011010000001010101111
+	 * -111.11111010101001100110101110100001011000110011010001
+	 */
 	
 	result = 1.0;
 	
@@ -272,12 +281,8 @@ static int test_fsubd()
 		: [num1]"w" (1.77248061294820569155916700765374116599559783935546875),
 		  [num2]"w" (7.97910187425732519983512247563339769840240478515625)
 	);
+	report("%s[%s]", (result == -6.20662126130911950827595546797965653240680694580078125), testname,"max precision");
 
-	if (result != -6.20662126130911950827595546797965653240680694580078125)
-		return 0;
-
-
-	printf("Testing fsubd (-inf)-(+inf)\n");
 	
 	union {
 		double inf;
@@ -298,39 +303,10 @@ static int test_fsubd()
 		: [num]"w" (data.inf)
 	);
 
-
-	if( data.input != result2.input)
-		return 0;
-
-	return 1;
-}
-
-
-
-/**
- *	Test floating point instructions.
- * 	Check N, Z, C.. registers and results
- */
-static void check_arithmetic()
-{
-	enable_vfp();
-
-	report("%s", test_fabsd(), testname);
-	report("%s", test_faddd(), testname);
-	report("%s", test_fcmpd(), testname);
-	report("%s", test_fsubd(), testname);
-}
-
-
-/**
- *	Test floating point instructions.
- * 	Check exceptions
- */
-static void check_exception()
-{
-	report("%s", 1, testname);
+	report("%s[%s]", ( data.input == result2.input), testname,"(-inf)-(+inf)");
 
 }
+
 
 int main(int argc, char **argv)
 {
@@ -338,10 +314,16 @@ int main(int argc, char **argv)
 	assert_args(argc, 1);
 	testname_set(argv[0]);
 
-	if (strcmp(argv[0], "arithmetic") == 0) {
-		check_arithmetic();
-	} else if (strcmp(argv[0], "exception") == 0) {
-		check_exception();
+	enable_vfp();
+
+	if (strcmp(argv[0], "fabsd") == 0) {
+		test_fabsd();
+	} else if (strcmp(argv[0], "faddd") == 0) {
+		test_faddd();
+	} else if (strcmp(argv[0], "fcmpd") == 0) {
+		test_fcmpd();
+	} else if (strcmp(argv[0], "fsubd") == 0) {
+		test_fsubd();
 	}
 
 	return report_summary();
