@@ -5,7 +5,8 @@
 #
 
 tests-common = \
-	$(TEST_DIR)/selftest.flat
+	$(TEST_DIR)/selftest.flat \
+	$(TEST_DIR)/vfp.flat \
 
 tests =
 
@@ -29,6 +30,7 @@ CFLAGS += -ffreestanding
 CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
+CFLAGS += -mfpu=vfpv4 -mfloat-abi=softfp
 
 asm-offsets = lib/arm/asm-offsets.h
 include config/asm-offsets.mak
@@ -76,4 +78,4 @@ generated_files = $(asm-offsets)
 test_cases: $(generated_files) $(tests-common) $(tests)
 
 $(TEST_DIR)/selftest.elf: $(cstart.o) $(TEST_DIR)/selftest.o
-
+$(TEST_DIR)/vfp.elf: $(cstart.o) $(TEST_DIR)/vfp.o
