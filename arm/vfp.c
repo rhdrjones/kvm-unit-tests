@@ -1,7 +1,7 @@
 /*
  * Test ARMv7 (Cortex A-15) VFPv4
  *
- * Copyright (C) 2014, STanislav Nechutny <stanislav@nechutny.com>
+ * Copyright (C) 2014, Stanislav Nechutny <stanislav@nechutny.net>
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
@@ -236,7 +236,7 @@ static int test_fsubd()
 
 
 /**
- *	Test floating point instructins.
+ *	Test floating point instructions.
  * 	Check N, Z, C.. registers and results
  */
 static void check_arithmetic()
@@ -251,7 +251,7 @@ static void check_arithmetic()
 
 
 /**
- *	Test floating point instructins.
+ *	Test floating point instructions.
  * 	Check exceptions
  */
 static void check_exception()
