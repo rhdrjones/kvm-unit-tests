@@ -37,7 +37,7 @@ static void assert_args(int num_args, int needed_args)
 
 /**
  *	Enable VFP 
- *	http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0438c/CDEDBHDD.html
+ *	http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0438i/CDEDBHDD.html
  */
 static inline void enable_vfp()
 {
@@ -68,7 +68,7 @@ static inline void enable_vfp()
 
 /**
  *	Disable VFP 
- *	http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0438c/CDEDBHDD.html
+ *	http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0438i/CDEDBHDD.html
  */
 static inline void disable_vfp()
 {
@@ -254,7 +254,55 @@ static int test_fsubd()
 		: [num]"w" (0.25)
 	);
 
-	return (result == 2.5);
+	if(result != 2.5)
+		return 0;
+
+
+	printf(
+			"Testing fsubd for maximal precision\n"
+			" 1.11000101110000010100101000011001011010000001010101111\n"
+			"-1111.11111010101001100110101110100001011000110011010001\n"
+	);
+	
+	result = 1.0;
+	
+	asm volatile(
+		"fsubd %[result], %[num1], %[num2]"	"\n\t"
+		: [result]"+w" (result)
+		: [num1]"w" (1.77248061294820569155916700765374116599559783935546875),
+		  [num2]"w" (7.97910187425732519983512247563339769840240478515625)
+	);
+
+	if (result != -6.20662126130911950827595546797965653240680694580078125)
+		return 0;
+
+
+	printf("Testing fsubd (-inf)-(+inf)\n");
+	
+	union {
+		double inf;
+		unsigned long long input;
+	} data;
+
+	union {
+		double d;
+		unsigned long long input;
+	} result2;
+
+	data.input = DOUBLE_MINUS_INF;
+	result2.input = DOUBLE_PLUS_INF;
+	
+	asm volatile(
+		"fsubd %[result], %[num], %[result]"	"\n\t"
+		: [result]"+w" (result2.d)
+		: [num]"w" (data.inf)
+	);
+
+
+	if( data.input != result2.input)
+		return 0;
+
+	return 1;
 }
 
 
