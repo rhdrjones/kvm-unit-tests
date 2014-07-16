@@ -18,6 +18,12 @@
 #define DOUBLE_PLUS_NULL	0x0000000000000000
 #define DOUBLE_MINUS_NULL	0x8000000000000000
 
+#define DOUBLE_UNION(name)	union { \
+								unsigned long long input; \
+								double d; \
+							} name;
+
+							
 static char testname[64];
 
 static void testname_set(const char *subtest)
@@ -108,17 +114,8 @@ static void test_fabsd()
 	report("%s[%s]", (result == 1.56473475206407319770818276083446107804775238037109375), testname, "-num");
 
 
-	union {
-		double inf;
-		unsigned long long input;
-	} data;
+	DOUBLE_UNION(result2);
 
-	union {
-		double d;
-		unsigned long long input;
-	} result2;
-
-	data.input = DOUBLE_PLUS_INF;
 	result2.input = DOUBLE_MINUS_INF;
 	
 	asm volatile(
@@ -126,7 +123,7 @@ static void test_fabsd()
 		: [result]"+w" (result2.d)
 	);
 
-	report("%s[%s]", ( data.input == result2.input), testname, "-inf");
+	report("%s[%s]", (result2.input == DOUBLE_PLUS_INF), testname, "-inf");
 
 }
 
@@ -162,15 +159,9 @@ static void test_faddd()
 
 
 
-	union {
-		double inf;
-		unsigned long long input;
-	} data;
+	DOUBLE_UNION(data);
 
-	union {
-		double d;
-		unsigned long long input;
-	} result2;
+	DOUBLE_UNION(result2);
 
 	data.input = DOUBLE_PLUS_INF;
 	result2.input = 1ULL;
@@ -178,7 +169,7 @@ static void test_faddd()
 	asm volatile(
 		"faddd %[result], %[num], %[num]"	"\n\t"
 		: [result]"+w" (result2.d)
-		: [num]"w" (data.inf)
+		: [num]"w" (data.d)
 	);
 
 	report("%s[%s]", ( data.input == result2.input), testname, "(inf)+(inf)");
@@ -231,15 +222,8 @@ static void test_fcmpd()
 	report("%s[%s]", 1, testname,"ZF");
 
 
-	union {
-		double d;
-		unsigned long long input;
-	} num1;
-
-	union {
-		double d;
-		unsigned long long input;
-	} num2;
+	DOUBLE_UNION(num1);
+	DOUBLE_UNION(num2);
 
 	num1.input = DOUBLE_PLUS_NULL;
 	num2.input = DOUBLE_MINUS_NULL;
@@ -284,15 +268,8 @@ static void test_fsubd()
 	report("%s[%s]", (result == -6.20662126130911950827595546797965653240680694580078125), testname,"max precision");
 
 	
-	union {
-		double inf;
-		unsigned long long input;
-	} data;
-
-	union {
-		double d;
-		unsigned long long input;
-	} result2;
+	DOUBLE_UNION(data);
+	DOUBLE_UNION(result2);
 
 	data.input = DOUBLE_MINUS_INF;
 	result2.input = DOUBLE_PLUS_INF;
@@ -300,7 +277,7 @@ static void test_fsubd()
 	asm volatile(
 		"fsubd %[result], %[num], %[result]"	"\n\t"
 		: [result]"+w" (result2.d)
-		: [num]"w" (data.inf)
+		: [num]"w" (data.d)
 	);
 
 	report("%s[%s]", ( data.input == result2.input), testname,"(-inf)-(+inf)");
