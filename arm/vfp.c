@@ -10,6 +10,7 @@
 #include "asm/ptrace.h"
 #include "asm/asm-offsets.h"
 #include "asm/processor.h"
+#include "asm/exception.h"
 
 #define TESTGRP "vfc"
 
@@ -22,7 +23,7 @@
 	union {					\
 		unsigned long long input;	\
 		double d;			\
-		} name;
+	} name;
 
 static char testname[64];
 
@@ -43,6 +44,13 @@ static void assert_args(int num_args, int needed_args)
 		printf("%s: not enough arguments\n", testname);
 		abort();
 	}
+}
+
+
+int handled;
+static void und_handler()
+{
+	handled = 1;
 }
 
 
@@ -178,8 +186,6 @@ static void test_faddd()
 }
 
 
-
-
 static void test_fcmpd()
 {
 	double result = 0.0;
@@ -244,6 +250,7 @@ static void test_fcmpd()
 	
 }
 
+
 static void test_fsubd()
 {
 	/* Test two numbers */
@@ -292,6 +299,33 @@ static void test_fsubd()
 }
 
 
+static void test_disabled(void)
+{
+	disable_vfp();
+
+	
+	/* Fabsd with disabled VFP */
+	handled = 0;
+	install_exception_handler(EXCPTN_UND, und_handler);
+	test_exception("", "fabsd d0, d0", "");
+	report("%s[%s]", handled, testname, "fabsd");
+	
+	/* Fdivd with disabled VFP */
+	handled = 0;
+	install_exception_handler(EXCPTN_UND, und_handler);
+	test_exception("", "fdivd d0, d1, d2", "");
+	report("%s[%s]", handled, testname, "fdivd");
+
+	/* Fcmpd with disabled VFP */
+	handled = 0;
+	install_exception_handler(EXCPTN_UND, und_handler);
+	test_exception("", "fcmpd d0, d1", "");
+	report("%s[%s]", handled, testname, "fcmpd");
+	
+	install_exception_handler(EXCPTN_UND, NULL);
+}
+
+
 int main(int argc, char **argv)
 {
 	testname_set(NULL);
@@ -308,6 +342,8 @@ int main(int argc, char **argv)
 		test_fcmpd();
 	else if (strcmp(argv[0], "fsubd") == 0)
 		test_fsubd();
+	else if (strcmp(argv[0], "disabled") == 0)
+		test_disabled();
 	else
 		printf("Unkown test\n");
 
