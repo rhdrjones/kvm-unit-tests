@@ -21,8 +21,8 @@
 		unsigned long long input;	\
 		double d;			\
 	} name;
-static char testname[64];
 
+static char testname[64];
 static void testname_set(const char *subtest)
 {
 	strcpy(testname, TESTGRP);
@@ -108,13 +108,12 @@ static void test_fabsd()
 	report("%s[%s]", (result == 1.56473475206407319770818276083446107804775238037109375),
 		testname, "-num");
 	
-
 	/*
 	 * Test -inf
 	 * expected is +inf
 	 * Inf is stored:
 	 * 1 sign bit (+inf/-inf)
-	 * 11 exponents bit all set to 1
+	 * 11 exponent bits all set to 1
 	 * 52 fract bits all set to 0
 	 */
 	DOUBLE_UNION(result2);
@@ -343,7 +342,7 @@ static void test_fcpyd()
 	report("%s[%s]", (num1.input == DOUBLE_PLUS_NAN), testname, "NaN");
 }
 
-static void test_fdivd()
+,static void test_fdivd()
 {
 	/*
 	 * Test (num)/(-num)
@@ -446,7 +445,13 @@ static void test_fdivd()
 	/*
 	 * Test -inf/inf
 	 * Divide -infinity by +infinity
-	 * Should set IVO, DVZ and INX bits
+	 * Should set IVO bit
+	 * 
+	 * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 * Need recheck, because on RaspberryPi with VFPv3 it set only IVO bit
+	 * , but on KVM-ARM and QEMU it set also DVZ and INX bit.
+	 * IEEE 754 don't specify this case
+	 * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 */
 	num1.input = DOUBLE_MINUS_INF;
 	num2.input = DOUBLE_PLUS_INF;
@@ -455,8 +460,8 @@ static void test_fdivd()
 		"fdivd %[result], %[result], %[num]"	"\n"
 		"fmrx r0, fpscr"			"\n"
 		"and r0, r0, %[mask]"			"\n"
-		"cmp r0, #19"				"\n"
-		"add %[ok], %[ok], r0"
+		"cmp r0, #1"				"\n"
+		"addeq %[ok], %[ok], #1"
 		
 		: [result]"+w" (num1.d),
 		  [ok]"+r" (ok)
