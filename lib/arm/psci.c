@@ -11,12 +11,25 @@
 #include <asm/page.h>
 #include <asm/smp.h>
 
+psci_invoke_fn psci_invoke;
+
 __attribute__((noinline))
-int psci_invoke(unsigned long function_id, unsigned long arg0,
-		unsigned long arg1, unsigned long arg2)
+int psci_invoke_hvc(unsigned long function_id, unsigned long arg0,
+		    unsigned long arg1, unsigned long arg2)
 {
 	asm volatile(
 		"hvc #0"
+	: "+r" (function_id)
+	: "r" (arg0), "r" (arg1), "r" (arg2));
+	return function_id;
+}
+
+__attribute__((noinline))
+int psci_invoke_smc(unsigned long function_id, unsigned long arg0,
+		    unsigned long arg1, unsigned long arg2)
+{
+	asm volatile(
+		"smc #0"
 	: "+r" (function_id)
 	: "r" (arg0), "r" (arg1), "r" (arg2));
 	return function_id;

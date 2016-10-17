@@ -21,6 +21,7 @@
 #include <asm/setup.h>
 #include <asm/page.h>
 #include <asm/smp.h>
+#include <asm/psci.h>
 
 #include "io.h"
 
@@ -57,7 +58,21 @@ static void cpu_set(int fdtnode __unused, u64 regval, void *info __unused)
 
 static void cpu_init(void)
 {
-	int ret;
+	const struct fdt_property *method;
+	int ret, node, len;
+
+	node = fdt_node_offset_by_compatible(dt_fdt(), -1, "arm,psci-0.2");
+	assert_msg(node >= 0, "PSCI v0.2 compatibility required");
+
+	method = fdt_get_property(dt_fdt(), node, "method", &len);
+	assert(method != NULL && len == 4);
+
+	if (strcmp(method->data, "hvc") == 0)
+		psci_invoke = psci_invoke_hvc;
+	else if (strcmp(method->data, "smc") == 0)
+		psci_invoke = psci_invoke_smc;
+	else
+		assert_msg(false, "Unknown PSCI conduit: %s", method->data);
 
 	nr_cpus = 0;
 	ret = dt_for_each_cpu_node(cpu_set, NULL);
