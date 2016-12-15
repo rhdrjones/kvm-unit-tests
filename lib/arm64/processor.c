@@ -27,6 +27,22 @@ static const char *vector_names[] = {
 	"el0_irq_32",
 	"el0_fiq_32",
 	"el0_error_32",
+	"el2t_sync",
+	"el2t_irq",
+	"el2t_fiq",
+	"el2t_error",
+	"el2h_sync",
+	"el2h_irq",
+	"el2h_fiq",
+	"el2h_error",
+	"el1_sync_64",
+	"el1_irq_64",
+	"el1_fiq_64",
+	"el1_error_64",
+	"el1_sync_32",
+	"el1_irq_32",
+	"eL1_fiq_32",
+	"el1_error_32",
 };
 
 static const char *ec_names[EC_MAX] = {
@@ -116,7 +132,10 @@ bool get_far(unsigned int esr, unsigned long *far)
 {
 	unsigned int ec = esr >> ESR_ELx_EC_SHIFT;
 
-	asm volatile("mrs %0, far_el1": "=r" (*far));
+	if (current_level() == CurrentEL_EL2)
+		asm volatile("mrs %0, far_el2": "=r" (*far));
+	else
+		asm volatile("mrs %0, far_el1": "=r" (*far));
 
 	switch (ec) {
 	case ESR_ELx_EC_IABT_LOW:
@@ -140,6 +159,8 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 	bool far_valid = get_far(esr, &far);
 	unsigned int ec = esr >> ESR_ELx_EC_SHIFT;
 
+	printf("CurrentEL: EL%d\n", current_level() == CurrentEL_EL1 ? 1 : 2);
+
 	if (bad_vector) {
 		if (v < VECTOR_MAX)
 			printf("Unhandled vector %d (%s)\n", v,
@@ -155,8 +176,8 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 	}
 
 	printf("Vector: %d (%s)\n", v, vector_names[v]);
-	printf("ESR_EL1: %8s%08x, ec=%#x (%s)\n", "", esr, ec, ec_names[ec]);
-	printf("FAR_EL1: %016lx (%svalid)\n", far, far_valid ? "" : "not ");
+	printf("ESR_ELx: %8s%08x, ec=%#x (%s)\n", "", esr, ec, ec_names[ec]);
+	printf("FAR_ELx: %016lx (%svalid)\n", far, far_valid ? "" : "not ");
 	printf("Exception frame registers:\n");
 	show_regs(regs);
 	abort();
@@ -226,6 +247,8 @@ void vector_handlers_default_init(vector_fn *handlers)
 	handlers[EL1H_IRQ]	= default_vector_irq_handler;
 	handlers[EL0_SYNC_64]	= default_vector_sync_handler;
 	handlers[EL0_IRQ_64]	= default_vector_irq_handler;
+	handlers[EL2H_SYNC]	= default_vector_sync_handler;
+	handlers[EL2H_IRQ]	= default_vector_irq_handler;
 }
 
 /* Needed to compile with -Wmissing-prototypes */

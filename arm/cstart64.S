@@ -24,6 +24,10 @@ start:
 	 */
 	mov	x20, x0
 
+	/* We might have been started in EL2 */
+	mrs	x19, CurrentEL
+	and	x19, x19, #CurrentEL_EL2
+
 	/* set the stack */
 	mov	x0, #1
 	msr	spsel, x0
@@ -36,7 +40,8 @@ start:
 	msr	cpacr_el1, x0
 
 	/* set up exception handling */
-	bl	exceptions_init
+	bl	exceptions_init_el1
+	bl	exceptions_init_el2
 
 	/* complete setup */
 	mov	x0, x20
@@ -57,12 +62,20 @@ start:
 	bl	exit
 	b	halt
 
-exceptions_init:
-	adrp	x0, vector_table
-	add	x0, x0, :lo12:vector_table
+exceptions_init_el1:
+	adrp	x0, el1_vector_table
+	add	x0, x0, :lo12:el1_vector_table
 	msr	vbar_el1, x0
 	isb
 	ret
+
+exceptions_init_el2:
+	cbz	x19, 1f
+	adrp	x0, el2_vector_table
+	add	x0, x0, :lo12:el2_vector_table
+	msr	vbar_el2, x0
+	isb
+1:	ret
 
 .text
 
@@ -75,12 +88,17 @@ get_mmu_off:
 
 .globl secondary_entry
 secondary_entry:
+	/* We might have been started in EL2 */
+	mrs	x19, CurrentEL
+	and	x19, x19, #CurrentEL_EL2
+
 	/* Enable FP/ASIMD */
 	mov	x0, #(3 << 20)
 	msr	cpacr_el1, x0
 
 	/* set up exception handling */
-	bl	exceptions_init
+	bl	exceptions_init_el1
+	bl	exceptions_init_el2
 
 	/* enable the MMU unless requested off */
 	bl	get_mmu_off
@@ -141,41 +159,66 @@ asm_mmu_enable:
 	dsb	ish
 
 	/* TCR */
-	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
+	ldr	x3, =TCR_TxSZ(VA_BITS) |		\
 		     TCR_TG0_64K | TCR_TG1_64K |	\
 		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
 		     TCR_SHARED
 	mrs	x2, id_aa64mmfr0_el1
-	bfi	x1, x2, #32, #3
-	msr	tcr_el1, x1
+	bfi	x3, x2, #32, #3
 
 	/* MAIR */
-	ldr	x1, =MAIR(0x00, MT_DEVICE_nGnRnE) |	\
+	ldr	x2, =MAIR(0x00, MT_DEVICE_nGnRnE) |	\
 		     MAIR(0x04, MT_DEVICE_nGnRE) |	\
 		     MAIR(0x0c, MT_DEVICE_GRE) |	\
 		     MAIR(0x44, MT_NORMAL_NC) |		\
 		     MAIR(0xff, MT_NORMAL)
-	msr	mair_el1, x1
 
-	/* TTBR0 */
+	mrs	x1, CurrentEL
+	and	x1, x1, #CurrentEL_EL2
+	cbnz	x1, 1f
+
+	msr	tcr_el1, x3
+	msr	mair_el1, x2
 	msr	ttbr0_el1, x0
 	isb
-
-	/* SCTLR */
 	mrs	x1, sctlr_el1
 	orr	x1, x1, SCTLR_ELx_C
 	orr	x1, x1, SCTLR_ELx_I
 	orr	x1, x1, SCTLR_ELx_M
 	msr	sctlr_el1, x1
 	isb
+	ret
 
+1:
+	and	x3, x3, #((1 << 19) - 1)	// upper TCR_EL2 bits
+						// don't match TCR_EL1
+	msr	tcr_el2, x3
+	msr	mair_el2, x2
+	msr	ttbr0_el2, x0
+	isb
+	mrs	x1, sctlr_el2
+	orr	x1, x1, SCTLR_ELx_C
+	orr	x1, x1, SCTLR_ELx_I
+	orr	x1, x1, SCTLR_ELx_M
+	msr	sctlr_el2, x1
+	isb
 	ret
 
 .globl asm_mmu_disable
 asm_mmu_disable:
+	mrs	x1, CurrentEL
+	and	x1, x1, #CurrentEL_EL2
+	cbnz	x1, 1f
+
 	mrs	x0, sctlr_el1
 	bic	x0, x0, SCTLR_ELx_M
 	msr	sctlr_el1, x0
+	isb
+	ret
+1:
+	mrs	x0, sctlr_el2
+	bic	x0, x0, SCTLR_ELx_M
+	msr	sctlr_el2, x0
 	isb
 	ret
 
@@ -203,27 +246,41 @@ asm_mmu_disable:
 
 	str	x30, [sp, #S_LR]
 
-	.if \vec >= 8
+	.if \vec >= 8 && \vec < 16
 	mrs	x1, sp_el0
 	.else
 	add	x1, sp, #S_FRAME_SIZE
 	.endif
 	str	x1, [sp, #S_SP]
 
+	.if \vec < 16
 	mrs	x1, elr_el1
 	mrs	x2, spsr_el1
+	.else
+	mrs	x1, elr_el2
+	mrs	x2, spsr_el2
+	.endif
 	stp	x1, x2, [sp, #S_PC]
 
 	mov	x0, \vec
 	mov	x1, sp
+	.if \vec < 16
 	mrs	x2, esr_el1
+	.else
+	mrs	x2, esr_el2
+	.endif
 	bl	do_handle_exception
 
 	ldp	x1, x2, [sp, #S_PC]
+	.if \vec < 16
 	msr	spsr_el1, x2
 	msr	elr_el1, x1
+	.else
+	msr	spsr_el2, x2
+	msr	elr_el2, x1
+	.endif
 
-	.if \vec >= 8
+	.if \vec >= 8 && \vec < 16
 	ldr	x1, [sp, #S_SP]
 	msr	sp_el0, x1
 	.endif
@@ -269,6 +326,26 @@ vector_stub	el0_irq_32,   13
 vector_stub	el0_fiq_32,   14
 vector_stub	el0_error_32, 15
 
+vector_stub	el2t_sync,    16
+vector_stub	el2t_irq,     17
+vector_stub	el2t_fiq,     18
+vector_stub	el2t_error,   19
+
+vector_stub	el2h_sync,    20
+vector_stub	el2h_irq,     21
+vector_stub	el2h_fiq,     22
+vector_stub	el2h_error,   23
+
+vector_stub	el1_sync_64,  24
+vector_stub	el1_irq_64,   25
+vector_stub	el1_fiq_64,   26
+vector_stub	el1_error_64, 27
+
+vector_stub	el1_sync_32,  28
+vector_stub	el1_irq_32,   29
+vector_stub	el1_fiq_32,   30
+vector_stub	el1_error_32, 31
+
 .section .text.ex
 
 .macro ventry, label
@@ -277,7 +354,7 @@ vector_stub	el0_error_32, 15
 .endm
 
 .align 11
-vector_table:
+el1_vector_table:
 	ventry	el1t_sync			// Synchronous EL1t
 	ventry	el1t_irq			// IRQ EL1t
 	ventry	el1t_fiq			// FIQ EL1t
@@ -297,3 +374,25 @@ vector_table:
 	ventry	el0_irq_32			// IRQ 32-bit EL0
 	ventry	el0_fiq_32			// FIQ 32-bit EL0
 	ventry	el0_error_32			// Error 32-bit EL0
+
+.align 11
+el2_vector_table:
+	ventry	el2t_sync			// Synchronous EL2t
+	ventry	el2t_irq			// IRQ EL2t
+	ventry	el2t_fiq			// FIQ EL2t
+	ventry	el2t_error			// Error EL2t
+
+	ventry	el2h_sync			// Synchronous EL2h
+	ventry	el2h_irq			// IRQ EL2h
+	ventry	el2h_fiq			// FIQ EL2h
+	ventry	el2h_error			// Error EL2h
+
+	ventry	el1_sync_64			// Synchronous 64-bit EL1
+	ventry	el1_irq_64			// IRQ 64-bit EL1
+	ventry	el1_fiq_64			// FIQ 64-bit EL1
+	ventry	el1_error_64			// Error 64-bit EL1
+
+	ventry	el1_sync_32			// Synchronous 32-bit EL1
+	ventry	el1_irq_32			// IRQ 32-bit EL1
+	ventry	el1_fiq_32			// FIQ 32-bit EL1
+	ventry	el1_error_32			// Error 32-bit EL1
