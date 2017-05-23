@@ -3,10 +3,11 @@ function for_each_unittest()
 {
 	local unittests="$1"
 	local cmd="$2"
+	local extra_opts=$3
 	local testname
 	local smp
 	local kernel
-	local opts
+	local opts=$extra_opts
 	local groups
 	local arch
 	local check
@@ -21,7 +22,7 @@ function for_each_unittest()
 			testname=${BASH_REMATCH[1]}
 			smp=1
 			kernel=""
-			opts=""
+			opts=$extra_opts
 			groups=""
 			arch=""
 			check=""
@@ -32,7 +33,7 @@ function for_each_unittest()
 		elif [[ $line =~ ^smp\ *=\ *(.*)$ ]]; then
 			smp=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^extra_params\ *=\ *(.*)$ ]]; then
-			opts=${BASH_REMATCH[1]}
+			opts="${BASH_REMATCH[1]} $opts"
 		elif [[ $line =~ ^groups\ *=\ *(.*)$ ]]; then
 			groups=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^arch\ *=\ *(.*)$ ]]; then

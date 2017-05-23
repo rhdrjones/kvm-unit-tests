@@ -14,7 +14,7 @@ function usage()
 {
 cat <<EOF
 
-Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS]
+Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS] [-- QEMU options]
 
     -h: Output this help text
     -v: Enables verbose mode
@@ -25,6 +25,8 @@ Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS]
 
 Set the environment variable QEMU=/path/to/qemu-system-ARCH to
 specify the appropriate qemu binary for ARCH-run.
+
+All options specified after -- are passed on to QEMU.
 
 EOF
 }
@@ -60,6 +62,9 @@ while getopts "ag:hj:v" opt; do
             ;;
     esac
 done
+
+shift $((OPTIND-1))
+extra_opts="$@"
 
 # RUNTIME_log_file will be configured later
 RUNTIME_log_stderr () { cat >> $RUNTIME_log_file; }
@@ -99,7 +104,7 @@ mkdir $unittest_log_dir || exit 2
 echo "BUILD_HEAD=$(cat build-head)" > $unittest_log_dir/SUMMARY
 
 trap "wait; exit 130" SIGINT
-for_each_unittest $config run_task
+for_each_unittest $config run_task "$extra_opts"
 
 # wait until all tasks finish
 wait
