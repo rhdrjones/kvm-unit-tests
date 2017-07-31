@@ -33,7 +33,8 @@ static void install_invalid_function_handler(exception_fn handler)
 #ifdef __arm__
 	install_exception_handler(EXCPTN_UND, handler);
 #else
-	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_UNKNOWN, handler);
+	int elxh_sync = current_level() == CurrentEL_EL1 ? EL1H_SYNC : EL2H_SYNC;
+	install_exception_handler(elxh_sync, ESR_ELx_EC_UNKNOWN, handler);
 #endif
 }
 
