@@ -300,14 +300,25 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 	__thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
 	thread_info_sp(sp_usr)->pgtable = current_thread_info()->pgtable;
 
-	asm volatile(
+	if (current_level() == CurrentEL_EL1) {
+		asm volatile(
 		"mov	x0, %0\n"
 		"msr	sp_el0, %1\n"
 		"msr	elr_el1, %2\n"
 		"mov	x3, xzr\n"	/* clear and "set" PSR_MODE_EL0t */
 		"msr	spsr_el1, x3\n"
 		"eret\n"
-	:: "r" (arg), "r" (sp_usr), "r" (func) : "x0", "x3");
+		:: "r" (arg), "r" (sp_usr), "r" (func) : "x0", "x3");
+	} else {
+		asm volatile(
+		"mov	x0, %0\n"
+		"msr	sp_el0, %1\n"
+		"msr	elr_el2, %2\n"
+		"mov	x3, xzr\n"	/* clear and "set" PSR_MODE_EL0t */
+		"msr	spsr_el2, x3\n"
+		"eret\n"
+		:: "r" (arg), "r" (sp_usr), "r" (func) : "x0", "x3");
+	}
 }
 
 bool is_user(void)

@@ -201,8 +201,8 @@ static bool check_regs(struct pt_regs *regs)
 {
 	unsigned i;
 
-	/* exception handlers should always run in EL1 */
-	if (current_level() != CurrentEL_EL1)
+	if (current_level() != CurrentEL_EL1 &&
+	    current_level() != CurrentEL_EL2)
 		return false;
 
 	for (i = 0; i < ARRAY_SIZE(regs->regs); ++i) {
@@ -226,6 +226,12 @@ static enum vector check_vector_prep(void)
 		return EL0_SYNC_64;
 
 	asm volatile("mrs %0, daif" : "=r" (daif) ::);
+
+	if (current_level() == CurrentEL_EL2) {
+		expected_regs.pstate = daif | PSR_MODE_EL2h;
+		return EL2H_SYNC;
+	}
+
 	expected_regs.pstate = daif | PSR_MODE_EL1h;
 	return EL1H_SYNC;
 }
@@ -242,8 +248,7 @@ static bool check_und(void)
 
 	install_exception_handler(v, ESR_ELx_EC_UNKNOWN, unknown_handler);
 
-	/* try to read an el2 sysreg from el0/1 */
-	test_exception("", "mrs x0, sctlr_el2", "");
+	test_exception("", ".inst 0", "");
 
 	install_exception_handler(v, ESR_ELx_EC_UNKNOWN, NULL);
 
