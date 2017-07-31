@@ -285,9 +285,9 @@ static void test_init(void)
 	vtimer_info.irq = fdt32_to_cpu(data[7]);
 	vtimer_info.irq_flags = fdt32_to_cpu(data[8]);
 
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, ptimer_unsupported_handler);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_UNKNOWN, ptimer_unsupported_handler);
 	read_sysreg(cntp_ctl_el0);
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, NULL);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_UNKNOWN, NULL);
 
 	if (ptimer_unsupported && !ERRATA(7b6b46311a85)) {
 		report_skip("Skipping ptimer tests. Set ERRATA_7b6b46311a85=y to enable.");

@@ -158,9 +158,9 @@ asm_mmu_enable:
 
 	/* SCTLR */
 	mrs	x1, sctlr_el1
-	orr	x1, x1, SCTLR_EL1_C
-	orr	x1, x1, SCTLR_EL1_I
-	orr	x1, x1, SCTLR_EL1_M
+	orr	x1, x1, SCTLR_ELx_C
+	orr	x1, x1, SCTLR_ELx_I
+	orr	x1, x1, SCTLR_ELx_M
 	msr	sctlr_el1, x1
 	isb
 
@@ -169,7 +169,7 @@ asm_mmu_enable:
 .globl asm_mmu_disable
 asm_mmu_disable:
 	mrs	x0, sctlr_el1
-	bic	x0, x0, SCTLR_EL1_M
+	bic	x0, x0, SCTLR_ELx_M
 	msr	sctlr_el1, x0
 	isb
 	ret

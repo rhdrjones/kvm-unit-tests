@@ -240,12 +240,12 @@ static bool check_und(void)
 {
 	enum vector v = check_vector_prep();
 
-	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, unknown_handler);
+	install_exception_handler(v, ESR_ELx_EC_UNKNOWN, unknown_handler);
 
 	/* try to read an el2 sysreg from el0/1 */
 	test_exception("", "mrs x0, sctlr_el2", "");
 
-	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, NULL);
+	install_exception_handler(v, ESR_ELx_EC_UNKNOWN, NULL);
 
 	return und_works;
 }
@@ -262,11 +262,11 @@ static bool check_svc(void)
 {
 	enum vector v = check_vector_prep();
 
-	install_exception_handler(v, ESR_EL1_EC_SVC64, svc_handler);
+	install_exception_handler(v, ESR_ELx_EC_SVC64, svc_handler);
 
 	test_exception("", "svc #123", "");
 
-	install_exception_handler(v, ESR_EL1_EC_SVC64, NULL);
+	install_exception_handler(v, ESR_ELx_EC_SVC64, NULL);
 
 	return svc_works;
 }
