@@ -29,6 +29,9 @@
 #define PMU_PMCR_IMP_SHIFT 24
 #define PMU_PMCR_IMP_MASK  0xff
 
+#define PMCCFILTR_NSH      (1 << 27) /* 0: count cycles in EL0 and EL1
+				      * 1: count cycles in EL0, EL1, EL2 */
+
 #define PMU_CYCLE_IDX      31
 
 #define NR_SAMPLES 10
@@ -37,6 +40,8 @@ static unsigned int pmu_version;
 #if defined(__arm__)
 #define ID_DFR0_PERFMON_SHIFT 24
 #define ID_DFR0_PERFMON_MASK  0xf
+
+#define PMCCFILTR_BITS 0
 
 #define PMCR         __ACCESS_CP15(c9, 0, c12, 0)
 #define ID_DFR0      __ACCESS_CP15(c0, 0, c1, 2)
@@ -97,6 +102,8 @@ static inline void precise_instrs_loop(int loop, uint32_t pmcr)
 #elif defined(__aarch64__)
 #define ID_AA64DFR0_PERFMON_SHIFT 8
 #define ID_AA64DFR0_PERFMON_MASK  0xf
+
+#define PMCCFILTR_BITS (current_level() == CurrentEL_EL1 ? 0 : PMCCFILTR_NSH)
 
 static inline uint32_t get_id_aa64dfr0(void) { return read_sysreg(id_aa64dfr0_el1); }
 static inline uint32_t get_pmcr(void) { return read_sysreg(pmcr_el0); }
@@ -166,7 +173,7 @@ static bool check_cycles_increase(void)
 
 	/* init before event access, this test only cares about cycle count */
 	set_pmcntenset(1 << PMU_CYCLE_IDX);
-	set_pmccfiltr(0); /* count cycles in EL0, EL1, but not EL2 */
+	set_pmccfiltr(PMCCFILTR_BITS);
 
 	set_pmcr(get_pmcr() | PMU_PMCR_LC | PMU_PMCR_C | PMU_PMCR_E);
 
@@ -218,7 +225,7 @@ static bool check_cpi(int cpi)
 
 	/* init before event access, this test only cares about cycle count */
 	set_pmcntenset(1 << PMU_CYCLE_IDX);
-	set_pmccfiltr(0); /* count cycles in EL0, EL1, but not EL2 */
+	set_pmccfiltr(PMCCFILTR_BITS);
 
 	if (cpi > 0)
 		printf("Checking for CPI=%d.\n", cpi);
