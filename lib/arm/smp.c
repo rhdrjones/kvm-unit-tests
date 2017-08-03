@@ -209,3 +209,9 @@ void on_cpus(void (*func)(void *data), void *data)
 	for_each_present_cpu(cpu)
 		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
 }
+
+void cpu_power_off(void *data)
+{
+	set_cpu_online(smp_processor_id(), false);
+	cpu_psci_cpu_die();
+}

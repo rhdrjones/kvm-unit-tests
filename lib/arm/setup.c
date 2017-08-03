@@ -138,6 +138,24 @@ static void mem_init(phys_addr_t freemem_start)
 	page_alloc_ops_enable();
 }
 
+void reset(void)
+{
+	int cpu;
+
+	assert(smp_processor_id() == 0);
+
+	for_each_present_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		on_cpu_async(cpu, cpu_power_off, NULL);
+	}
+
+	while (cpumask_weight(&cpu_online_mask) > 1)
+		cpu_relax();
+
+	psci_sys_reset();
+}
+
 void setup(const void *fdt)
 {
 	void *fdt_base = &stacktop;

@@ -33,5 +33,6 @@ extern phys_addr_t __phys_offset, __phys_end;
 #define SMP_CACHE_BYTES		L1_CACHE_BYTES
 
 void setup(const void *fdt);
+extern void reset(void);
 
 #endif /* _ASMARM_SETUP_H_ */
