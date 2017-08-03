@@ -312,6 +312,12 @@ int main(int argc, char **argv)
 
 	report_prefix_pushf("gicv%d", gic_version());
 
+	/* FIXME: shouldn't have to skip these tests */
+	if (is_hyp_mode()) {
+		report_skip("can't run tests when started in HYP mode");
+		return report_summary();
+	}
+
 	switch (gic_version()) {
 	case 2:
 		gic = &gicv2;

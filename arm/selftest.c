@@ -326,8 +326,11 @@ int main(int argc, char **argv)
 
 	} else if (strcmp(argv[1], "vectors-user") == 0) {
 
-		start_usr(check_vectors, NULL,
-				(unsigned long)thread_stack_alloc());
+		/* FIXME: shouldn't have to skip this test */
+		if (is_hyp_mode())
+			report_skip("can't test when started in HYP mode");
+		else
+			start_usr(check_vectors, NULL, (ulong)thread_stack_alloc());
 
 	} else if (strcmp(argv[1], "smp") == 0) {
 

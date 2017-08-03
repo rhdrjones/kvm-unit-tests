@@ -116,5 +116,10 @@ static inline u32 get_cntfrq(void)
 	return read_sysreg(cntfrq_el0);
 }
 
+static inline bool is_hyp_mode(void)
+{
+	return current_level() == CurrentEL_EL2;
+}
+
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PROCESSOR_H_ */

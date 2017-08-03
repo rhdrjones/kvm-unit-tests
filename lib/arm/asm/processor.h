@@ -76,4 +76,9 @@ static inline u32 get_cntfrq(void)
 	return read_sysreg(CNTFRQ);
 }
 
+static inline bool is_hyp_mode(void)
+{
+	return false;
+}
+
 #endif /* _ASMARM_PROCESSOR_H_ */
