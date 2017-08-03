@@ -15,6 +15,7 @@ OBJDIRS += lib/arm64
 
 # arm64 specific tests
 tests = $(TEST_DIR)/timer.flat
+tests += $(TEST_DIR)/hyp.flat
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
