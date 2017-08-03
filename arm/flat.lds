@@ -10,8 +10,12 @@ SECTIONS
     . = ALIGN(16);
     .rodata : { *(.rodata) }
     . = ALIGN(16);
+    sbss = .;
     .bss : { *(.bss) }
+    ebss = .;
     . = ALIGN(64K);
+    persistent_memory = .;
+    . += 64K;
     edata = .;
     . += 64K;
     . = ALIGN(64K);

@@ -26,6 +26,9 @@
 #include "io.h"
 
 extern unsigned long stacktop;
+extern unsigned long sbss, ebss;
+
+static void *freemem_base;
 
 char *initrd;
 u32 initrd_size;
@@ -137,10 +140,25 @@ static void mem_init(phys_addr_t freemem_start)
 
 void setup(const void *fdt)
 {
-	void *freemem = &stacktop;
+	void *fdt_base = &stacktop;
+	void *freemem = fdt_base;
 	const char *bootargs, *tmp;
 	u32 fdt_size;
 	int ret;
+
+	/*
+	 * If we're running a reset test, then we've been here before,
+	 * and we don't want to try to move the FDT or INITRD again.
+	 * Luckily we don't have to, since we know where they are. The
+	 * FDT starts at stacktop and is followed by the INITRD, which
+	 * ends at freemem_base. So, as long as we grab freemem_base
+	 * from the BSS before clearing it, then we're good to go.
+	 */
+	if (freemem_base)
+		freemem = freemem_base;
+
+	/* Clear the BSS */
+	memset(&sbss, 0, &ebss - &sbss);
 
 	/*
 	 * Before calling mem_init we need to move the fdt and initrd
@@ -164,19 +182,28 @@ void setup(const void *fdt)
 	 *    |                      |
 	 *    +----------------------+
 	 */
-	fdt_size = fdt_totalsize(fdt);
-	ret = fdt_move(fdt, freemem, fdt_size);
+	if (freemem == fdt_base) {
+		assert(fdt);
+		ret = fdt_move(fdt, fdt_base, fdt_totalsize(fdt));
+		assert(ret == 0);
+	}
+	ret = dt_init(fdt_base);
 	assert(ret == 0);
-	ret = dt_init(freemem);
-	assert(ret == 0);
-	freemem += fdt_size;
+	fdt_size = fdt_totalsize(dt_fdt());
 
-	ret = dt_get_initrd(&tmp, &initrd_size);
-	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
-	if (ret == 0) {
-		initrd = freemem;
-		memmove(initrd, tmp, initrd_size);
-		freemem += initrd_size;
+	if (freemem == fdt_base) {
+		freemem += fdt_size;
+		ret = dt_get_initrd(&tmp, &initrd_size);
+		assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
+		if (ret == 0) {
+			initrd = freemem;
+			memmove(initrd, tmp, initrd_size);
+			freemem += initrd_size;
+		}
+		freemem_base = freemem;
+	} else if (freemem > fdt_base + fdt_size) {
+		initrd = fdt_base + fdt_size;
+		initrd_size = (char *)freemem - initrd;
 	}
 
 	/* call init functions */

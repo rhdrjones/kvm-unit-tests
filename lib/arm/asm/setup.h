@@ -13,6 +13,8 @@
 extern u64 cpus[NR_CPUS];	/* per-cpu IDs (MPIDRs) */
 extern int nr_cpus;
 
+extern unsigned long persistent_memory;
+
 #define NR_MEM_REGIONS		8
 #define MR_F_PRIMARY		(1U << 0)
 struct mem_region {
