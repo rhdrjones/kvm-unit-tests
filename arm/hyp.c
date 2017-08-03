@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #include <libcflat.h>
+#include <asm/setup.h>
 #include <asm/processor.h>
 #include <asm/smp.h>
 
@@ -69,11 +70,17 @@ static void check_el2(void *data)
 
 int main(void)
 {
+	int *start_count = (int *)&persistent_memory;
 	int i = 2;
+
+	*start_count += 1;
 
 	report_prefix_push("hyp");
 
-	report_info("NR_CPUS=%d", nr_cpus);
+	if (*start_count == 1)
+		report_info("NR_CPUS=%d", nr_cpus);
+	else
+		report_prefix_push("reset");
 
 	on_cpus(check_el2, NULL);
 
@@ -99,5 +106,7 @@ int main(void)
 		report_prefix_pop();
 	}
 
+	if (*start_count == 1)
+		reset();
 	return report_summary();
 }
