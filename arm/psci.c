@@ -127,6 +127,11 @@ int main(void)
 {
 	int ver = psci_invoke(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
 
+	if (is_hyp_mode()) {
+		report_skip("Can't run PSCI tests in EL2. What happened to QEMU?");
+		return report_summary();
+	}
+
 	if (nr_cpus < 2) {
 		report_skip("At least 2 cpus required");
 		goto done;
