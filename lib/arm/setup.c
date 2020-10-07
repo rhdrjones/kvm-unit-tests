@@ -31,7 +31,7 @@
 #define MAX_DT_MEM_REGIONS	16
 #define NR_EXTRA_MEM_REGIONS	16
 
-extern unsigned long etext;
+extern unsigned long _etext;
 
 struct timer_state __timer_state;
 
@@ -101,7 +101,7 @@ unsigned int mem_region_get_flags(phys_addr_t paddr)
 
 static void mem_regions_add_extra(int nr_regions)
 {
-	phys_addr_t code_end = (phys_addr_t)(unsigned long)&etext;
+	phys_addr_t code_end = (phys_addr_t)(unsigned long)&_etext;
 	struct mem_region mem, *r;
 
 	r = mem_region_find(code_end - 1);
