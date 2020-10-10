@@ -9,7 +9,7 @@
 #include "argv.h"
 #include "auxinfo.h"
 
-int __argc;
+int __argc, __envc;
 const char *__args;
 char *__argv[100];
 char *__environ[200];
@@ -131,7 +131,6 @@ void setup_env(char *env, int size)
 {
 	char *eof = env + size, *p = env;
 	bool newline = false;
-	int i = 0;
 
 	while (*p)
 		++p;
@@ -143,7 +142,7 @@ void setup_env(char *env, int size)
 			env = env_next(env);
 		if (!*env || env >= eof)
 			break;
-		__environ[i++] = env;
+		__environ[__envc++] = env;
 		while (env < eof && *env && !(newline && *env == '\n'))
 			++env;
 		*env++ = '\0';
