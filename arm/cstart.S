@@ -60,12 +60,7 @@ start:
 	/* complete setup */
 	pop	{r0-r1}
 	bl	setup
-	bl	get_mmu_off
-	cmp	r0, #0
-	bne	1f
-	bl	setup_vm
 
-1:
 	/* run the test */
 	ldr	r0, =__argc
 	ldr	r0, [r0]

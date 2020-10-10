@@ -16,6 +16,8 @@
 #include <alloc.h>
 #include <alloc_phys.h>
 #include <alloc_page.h>
+#include <vmalloc.h>
+#include <auxinfo.h>
 #include <argv.h>
 #include <asm/thread_info.h>
 #include <asm/setup.h>
@@ -247,10 +249,13 @@ void setup(const void *fdt)
 	/* cpu_init must be called before thread_info_init */
 	thread_info_init(current_thread_info(), 0);
 
-	/* mem_init must be called before io_init */
+	/* thread_info_init must be called before setup_vm */
+	if (!(auxinfo.flags & AUXINFO_MMU_OFF))
+		setup_vm();
+
+	/* mem_init and setup_vm must be called before io_init */
 	io_init();
 
-	/* finish setup */
 	timer_save_state();
 
 	ret = dt_get_bootargs(&bootargs);
