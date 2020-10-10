@@ -83,13 +83,6 @@ start:
 	bl	exit
 	b	halt
 
-exceptions_init:
-	adrp	x4, vector_table
-	add	x4, x4, :lo12:vector_table
-	msr	vbar_el1, x4
-	isb
-	ret
-
 .text
 
 .globl get_mmu_off
@@ -249,6 +242,17 @@ asm_mmu_disable:
 
 /*
  * Vectors
+ */
+
+.globl exceptions_init
+exceptions_init:
+	adrp	x4, vector_table
+	add	x4, x4, :lo12:vector_table
+	msr	vbar_el1, x4
+	isb
+	ret
+
+/*
  * Adapted from arch/arm64/kernel/entry.S
  */
 .macro vector_stub, name, vec
