@@ -67,11 +67,7 @@ start:
 
 	/* complete setup */
 	bl	setup				// x0 is the addr of the dtb
-	bl	get_mmu_off
-	cbnz	x0, 1f
-	bl	setup_vm
 
-1:
 	/* run the test */
 	adrp	x0, __argc
 	ldr	w0, [x0, :lo12:__argc]
