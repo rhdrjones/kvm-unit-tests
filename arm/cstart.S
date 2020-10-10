@@ -75,33 +75,9 @@ start:
 	bl	exit
 	b	halt
 
+.text
 
-.macro set_mode_stack mode, stack
-	add	\stack, #S_FRAME_SIZE
-	msr	cpsr_c, #(\mode | PSR_I_BIT | PSR_F_BIT)
-	isb
-	mov	sp, \stack
-.endm
-
-exceptions_init:
-	mrc	p15, 0, r2, c1, c0, 0	@ read SCTLR
-	bic	r2, #CR_V		@ SCTLR.V := 0
-	mcr	p15, 0, r2, c1, c0, 0	@ write SCTLR
-	ldr	r2, =vector_table
-	mcr	p15, 0, r2, c12, c0, 0	@ write VBAR
-
-	mrs	r2, cpsr
-
-	/* first frame reserved for svc mode */
-	set_mode_stack	UND_MODE, r0
-	set_mode_stack	ABT_MODE, r0
-	set_mode_stack	IRQ_MODE, r0
-	set_mode_stack	FIQ_MODE, r0
-
-	msr	cpsr_cxsf, r2		@ back to svc mode
-	isb
-	mov	pc, lr
-
+.global enable_vfp
 enable_vfp:
 	/* Enable full access to CP10 and CP11: */
 	mov	r0, #(3 << 22 | 3 << 20)
@@ -111,8 +87,6 @@ enable_vfp:
 	mov	r0, #(1 << 30)
 	vmsr	fpexc, r0
 	mov	pc, lr
-
-.text
 
 .global get_mmu_off
 get_mmu_off:
@@ -240,6 +214,37 @@ asm_mmu_disable:
 	mcr	p15, 0, r0, c8, c7, 0
 	dsb	nsh
 
+	mov	pc, lr
+
+/*
+ * Vectors
+ */
+
+.macro set_mode_stack mode, stack
+	add	\stack, #S_FRAME_SIZE
+	msr	cpsr_c, #(\mode | PSR_I_BIT | PSR_F_BIT)
+	isb
+	mov	sp, \stack
+.endm
+
+.global exceptions_init
+exceptions_init:
+	mrc	p15, 0, r2, c1, c0, 0	@ read SCTLR
+	bic	r2, #CR_V		@ SCTLR.V := 0
+	mcr	p15, 0, r2, c1, c0, 0	@ write SCTLR
+	ldr	r2, =vector_table
+	mcr	p15, 0, r2, c12, c0, 0	@ write VBAR
+
+	mrs	r2, cpsr
+
+	/* first frame reserved for svc mode */
+	set_mode_stack	UND_MODE, r0
+	set_mode_stack	ABT_MODE, r0
+	set_mode_stack	IRQ_MODE, r0
+	set_mode_stack	FIQ_MODE, r0
+
+	msr	cpsr_cxsf, r2		@ back to svc mode
+	isb
 	mov	pc, lr
 
 /*
