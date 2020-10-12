@@ -8,6 +8,9 @@
 #include <libcflat.h>
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
+#include <asm/thread_info.h>
+
+#define MIN_STACK_SIZE		THREAD_SIZE
 
 #define NR_CPUS			511
 extern u64 cpus[NR_CPUS];	/* per-cpu IDs (MPIDRs) */
