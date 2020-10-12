@@ -175,12 +175,10 @@ void *setup_mmu(phys_addr_t phys_end)
 			mmu_set_range_sect(mmu_idmap, r->start, r->start, r->end,
 					   __pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
 		} else if (r->flags & MR_F_CODE) {
-			assert_msg(r->flags & MR_F_PRIMARY, "Unexpected code region");
 			/* armv8 requires code shared between EL1 and EL0 to be read-only */
 			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,
 					   __pgprot(PTE_WBWA | PTE_USER | PTE_RDONLY));
 		} else {
-			assert_msg(r->flags & MR_F_PRIMARY, "Unexpected data region");
 			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,
 					   __pgprot(PTE_WBWA | PTE_USER));
 		}

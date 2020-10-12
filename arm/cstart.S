@@ -59,7 +59,9 @@ start:
 
 	/* complete setup */
 	pop	{r0-r1}
-	bl	setup
+	ldr	r2, =stacktop
+	mov	r1, #0
+	bl	setup			@ r0 is the addr of the dtb
 
 	/* run the test */
 	ldr	r0, =__argc

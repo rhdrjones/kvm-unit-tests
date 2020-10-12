@@ -66,6 +66,8 @@ start:
 	bl	exceptions_init
 
 	/* complete setup */
+	adrp	x1, stacktop
+	add	x1, x1, :lo12:stacktop
 	bl	setup				// x0 is the addr of the dtb
 
 	/* run the test */
