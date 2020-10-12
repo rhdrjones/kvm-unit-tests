@@ -28,9 +28,9 @@
 
 #include "io.h"
 
-#define NR_INITIAL_MEM_REGIONS 16
+#define MAX_DT_MEM_REGIONS	16
+#define NR_EXTRA_MEM_REGIONS	16
 
-extern unsigned long stacktop;
 extern unsigned long etext;
 
 struct timer_state __timer_state;
@@ -41,7 +41,7 @@ u32 initrd_size;
 u64 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (u64)~0 };
 int nr_cpus;
 
-static struct mem_region __initial_mem_regions[NR_INITIAL_MEM_REGIONS + 1];
+static struct mem_region __initial_mem_regions[MAX_DT_MEM_REGIONS + NR_EXTRA_MEM_REGIONS];
 struct mem_region *mem_regions = __initial_mem_regions;
 phys_addr_t __phys_offset, __phys_end;
 
@@ -82,28 +82,35 @@ static void cpu_init(void)
 	dcache_line_size = 1 << (CTR_DMINLINE(get_ctr()) + 2);
 }
 
-unsigned int mem_region_get_flags(phys_addr_t paddr)
+struct mem_region *mem_region_find(phys_addr_t paddr)
 {
 	struct mem_region *r;
 
-	for (r = mem_regions; r->end; ++r) {
+	for (r = mem_regions; r->end; ++r)
 		if (paddr >= r->start && paddr < r->end)
-			return r->flags;
-	}
+			return r;
 
-	return MR_F_UNKNOWN;
+	return NULL;
 }
 
-static void mem_init(phys_addr_t freemem_start)
+unsigned int mem_region_get_flags(phys_addr_t paddr)
+{
+	struct mem_region *r = mem_region_find(paddr);
+	return r ? r->flags : MR_F_UNKNOWN;
+}
+
+static void mem_regions_add_extra(int nr_regions)
 {
 	phys_addr_t code_end = (phys_addr_t)(unsigned long)&etext;
-	struct dt_pbus_reg regs[NR_INITIAL_MEM_REGIONS];
-	struct mem_region mem = {
-		.start = (phys_addr_t)-1,
-	};
-	struct mem_region *primary = NULL;
-	phys_addr_t base, top;
-	int nr_regs, nr_io = 0, i;
+	struct mem_region mem, *r;
+
+	r = mem_region_find(code_end - 1);
+	assert(r);
+
+	/* Split the region with the code into two regions; code and data */
+	mem.start = code_end, mem.end = r->end, mem.flags = 0;
+	mem_regions[nr_regions++] = mem;
+	r->end = code_end, r->flags = MR_F_CODE;
 
 	/*
 	 * mach-virt I/O regions:
@@ -111,50 +118,65 @@ static void mem_init(phys_addr_t freemem_start)
 	 *   - 512M at 256G (arm64, arm uses highmem=off)
 	 *   - 512G at 512G (arm64, arm uses highmem=off)
 	 */
-	mem_regions[nr_io++] = (struct mem_region){ 0, (1ul << 30), MR_F_IO };
+	mem_regions[nr_regions++] = (struct mem_region){ 0, (1ul << 30), MR_F_IO };
 #ifdef __aarch64__
-	mem_regions[nr_io++] = (struct mem_region){ (1ul << 38), (1ul << 38) | (1ul << 29), MR_F_IO };
-	mem_regions[nr_io++] = (struct mem_region){ (1ul << 39), (1ul << 40), MR_F_IO };
+	mem_regions[nr_regions++] = (struct mem_region){ (1ul << 38), (1ul << 38) | (1ul << 29), MR_F_IO };
+	mem_regions[nr_regions++] = (struct mem_region){ (1ul << 39), (1ul << 40), MR_F_IO };
 #endif
+}
 
-	nr_regs = dt_get_memory_params(regs, NR_INITIAL_MEM_REGIONS - nr_io);
+static void mem_regions_init(void)
+{
+	struct dt_pbus_reg regs[MAX_DT_MEM_REGIONS];
+	int nr_regs, i;
+
+	nr_regs = dt_get_memory_params(regs, MAX_DT_MEM_REGIONS);
 	assert(nr_regs > 0);
 
 	for (i = 0; i < nr_regs; ++i) {
-		struct mem_region *r = &mem_regions[nr_io + i];
-
+		struct mem_region *r = &mem_regions[i];
 		r->start = regs[i].addr;
 		r->end = regs[i].addr + regs[i].size;
-
-		/*
-		 * pick the region we're in for our primary region
-		 */
-		if (freemem_start >= r->start && freemem_start < r->end) {
-			r->flags |= MR_F_PRIMARY;
-			primary = r;
-		}
-
-		/*
-		 * set the lowest and highest addresses found,
-		 * ignoring potential gaps
-		 */
-		if (r->start < mem.start)
-			mem.start = r->start;
-		if (r->end > mem.end)
-			mem.end = r->end;
 	}
-	assert(primary);
-	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
 
-	__phys_offset = primary->start;	/* PHYS_OFFSET */
-	__phys_end = primary->end;	/* PHYS_END */
+	mem_regions_add_extra(i);
+}
 
-	/* Split the primary region into two regions; code and data */
-	mem.start = code_end, mem.end = primary->end, mem.flags = MR_F_PRIMARY;
-	mem_regions[nr_io + i] = mem;
-	primary->end = code_end, primary->flags |= MR_F_CODE;
+static void mem_init(phys_addr_t freemem_start)
+{
+	phys_addr_t base, top;
+	struct mem_region *freemem, *r, mem = {
+		.start = (phys_addr_t)-1,
+	};
 
-	phys_alloc_init(freemem_start, __phys_end - freemem_start);
+	freemem = mem_region_find(freemem_start);
+	assert(freemem && !(freemem->flags & (MR_F_IO | MR_F_CODE)));
+
+	for (r = mem_regions; r->end; ++r) {
+		if (r->flags & MR_F_IO) {
+			assert(!(r->start & ~PHYS_MASK) && !((r->end - 1) & ~PHYS_MASK));
+		} else {
+			if (r->start < mem.start)
+				mem.start = r->start;
+			if (r->end > mem.end)
+				mem.end = r->end;
+		}
+	}
+	assert(mem.end);
+
+	/* Check for holes */
+	r = mem_region_find(mem.start);
+	while (r && r->end != mem.end)
+		r = mem_region_find(r->end);
+	assert(r);
+
+	/* Ensure our selected freemem region is somewhere in our full range */
+	assert(freemem_start >= mem.start && freemem->end <= mem.end);
+
+	__phys_offset = mem.start;	/* PHYS_OFFSET */
+	__phys_end = mem.end;		/* PHYS_END */
+
+	phys_alloc_init(freemem_start, freemem->end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
 
 	phys_alloc_get_unused(&base, &top);
@@ -204,35 +226,17 @@ static void timer_save_state(void)
 	__timer_state.vtimer.irq_flags = fdt32_to_cpu(data[8]);
 }
 
-void setup(const void *fdt)
+void setup(const void *fdt, phys_addr_t freemem_start)
 {
-	void *freemem = &stacktop;
+	void *freemem;
 	const char *bootargs, *tmp;
 	u32 fdt_size;
 	int ret;
 
-	/*
-	 * Before calling mem_init we need to move the fdt and initrd
-	 * to safe locations. We move them to construct the memory
-	 * map illustrated below:
-	 *
-	 *    +----------------------+   <-- top of physical memory
-	 *    |                      |
-	 *    ~                      ~
-	 *    |                      |
-	 *    +----------------------+   <-- top of initrd
-	 *    |                      |
-	 *    +----------------------+   <-- top of FDT
-	 *    |                      |
-	 *    +----------------------+   <-- top of cpu0's stack
-	 *    |                      |
-	 *    +----------------------+   <-- top of text/data/bss sections,
-	 *    |                      |       see arm/flat.lds
-	 *    |                      |
-	 *    +----------------------+   <-- load address
-	 *    |                      |
-	 *    +----------------------+
-	 */
+	assert(sizeof(long) == 8 || freemem_start < (3ul << 30));
+	freemem = (void *)(unsigned long)freemem_start;
+
+	/* Move the FDT to the base of free memory */
 	fdt_size = fdt_totalsize(fdt);
 	ret = fdt_move(fdt, freemem, fdt_size);
 	assert(ret == 0);
@@ -240,6 +244,7 @@ void setup(const void *fdt)
 	assert(ret == 0);
 	freemem += fdt_size;
 
+	/* Move the initrd to the top of the FDT */
 	ret = dt_get_initrd(&tmp, &initrd_size);
 	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	if (ret == 0) {
@@ -248,8 +253,9 @@ void setup(const void *fdt)
 		freemem += initrd_size;
 	}
 
-	/* call init functions */
+	mem_regions_init();
 	mem_init(PAGE_ALIGN((unsigned long)freemem));
+
 	cpu_init();
 
 	/* cpu_init must be called before thread_info_init */
