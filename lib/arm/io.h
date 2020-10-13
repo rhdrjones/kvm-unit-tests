@@ -5,3 +5,4 @@
  */
 
 extern void io_init(void);
+extern int putchar(int c);
