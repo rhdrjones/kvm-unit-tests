@@ -29,6 +29,9 @@ static struct spinlock uart_lock;
 #define UART_EARLY_BASE (u8 *)(unsigned long)CONFIG_UART_EARLY_BASE
 static volatile u8 *uart0_base = UART_EARLY_BASE;
 
+#define UARTFR		0x18
+#define UARTFR_BUSY	(1 << 3)
+
 static void uart0_init(void)
 {
 	/*
@@ -79,11 +82,19 @@ void io_init(void)
 	chr_testdev_init();
 }
 
+int putchar(int c)
+{
+	while (readb(uart0_base + UARTFR) & UARTFR_BUSY)
+		;
+	writeb((unsigned char)c, uart0_base);
+	return c;
+}
+
 void puts(const char *s)
 {
 	spin_lock(&uart_lock);
 	while (*s)
-		writeb(*s++, uart0_base);
+		putchar(*s++);
 	spin_unlock(&uart_lock);
 }
 
