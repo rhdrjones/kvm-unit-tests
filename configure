@@ -26,6 +26,7 @@ errata_force=0
 erratatxt="$srcdir/errata.txt"
 host_key_document=
 page_size=
+target_efi=
 
 usage() {
     cat <<-EOF
@@ -54,6 +55,7 @@ usage() {
 	    --page-size=PAGE_SIZE
 	                           Specify the page size (translation granule) (4k, 16k or
 	                           64k, default is 64k, arm64 only)
+	    --target-efi	   Compile tests as EFI apps that can be run from UEFI
 EOF
     exit 1
 }
@@ -112,6 +114,9 @@ while [[ "$1" = -* ]]; do
 	--page-size)
 	    page_size="$arg"
 	    ;;
+	--target-efi)
+	    target_efi=y
+	    ;;
 	--help)
 	    usage
 	    ;;
@@ -131,8 +136,13 @@ arch_name=$arch
 [ "$arch_name" = "arm64" ] && arch_name="aarch64"
 
 if [ -z "$page_size" ]; then
-    [ "$arch" = "arm64" ] && page_size="65536"
-    [ "$arch" = "arm" ] && page_size="4096"
+    if [ "$target_efi" ] && [ "$arch" = "arm64" ]; then
+        page_size="4096"
+    elif [ "$arch" = "arm64" ]; then
+        page_size="65536"
+    elif [ "$arch" = "arm" ]; then
+        page_size="4096"
+    fi
 else
     if [ "$arch" != "arm64" ]; then
         echo "--page-size is not supported for $arch"
@@ -146,6 +156,10 @@ else
            [ "$page_size" != "65536" ]; then
         echo "arm64 doesn't support page size of $page_size"
         usage
+    fi
+    if [ "$target_efi" ] && [ "$page_size" != "4096" ]; then
+        echo "target-efi must use 4K pages"
+        exit 1
     fi
 fi
 
@@ -264,6 +278,7 @@ U32_LONG_FMT=$u32_long
 WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
+TARGET_EFI=$target_efi
 EOF
 
 cat <<EOF > lib/config.h
