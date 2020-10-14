@@ -180,6 +180,18 @@ elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     elif [ "$vmm" = "kvmtool" ]; then
         arm_uart_early_addr=0x3f8
         errata_force=1
+    elif [ "$vmm" = "seattle" ]; then
+        if [ "$arch" != "arm64" ]; then
+            echo "--vmm=seattle is only for arm64"
+            exit 1
+        elif [ -z "$target_efi" ]; then
+            echo "--target-efi must be selected with --vmm=seattle"
+            exit 1
+        fi
+        [ "$processor" = "max" ] && processor=cortex-a57
+        config_vmm="#define CONFIG_SEATTLE"
+        arm_uart_early_addr=0xe1010000
+        errata_force=1
     else
         echo '--vmm must be one of "qemu" or "kvmtool"!'
         usage
@@ -293,6 +305,7 @@ EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
 cat <<EOF >> lib/config.h
 
+$config_vmm
 #define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
 #define CONFIG_ERRATA_FORCE ${errata_force}
 #define CONFIG_PAGE_SIZE _AC(${page_size}, UL)
