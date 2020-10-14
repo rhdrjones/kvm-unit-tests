@@ -25,6 +25,7 @@
 #include <asm/processor.h>
 #include <asm/smp.h>
 #include <asm/timer.h>
+#include <asm/psci.h>
 
 #include "io.h"
 
@@ -65,6 +66,25 @@ static void cpu_set(int fdtnode __unused, u64 regval, void *info __unused)
 
 	cpus[cpu] = regval;
 	set_cpu_present(cpu, true);
+}
+
+static void psci_set_conduit(void)
+{
+	const struct fdt_property *method;
+	int node, len;
+
+	node = fdt_node_offset_by_compatible(dt_fdt(), -1, "arm,psci-0.2");
+	assert_msg(node >= 0, "PSCI v0.2 compatibility required");
+
+	method = fdt_get_property(dt_fdt(), node, "method", &len);
+	assert(method != NULL && len == 4);
+
+	if (strcmp(method->data, "hvc") == 0)
+		psci_invoke = psci_invoke_hvc;
+	else if (strcmp(method->data, "smc") == 0)
+		psci_invoke = psci_invoke_smc;
+	else
+		assert_msg(false, "Unknown PSCI conduit: %s", method->data);
 }
 
 static void cpu_init(void)
@@ -256,6 +276,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 	mem_regions_init();
 	mem_init(PAGE_ALIGN((unsigned long)freemem));
 
+	psci_set_conduit();
 	cpu_init();
 
 	/* cpu_init must be called before thread_info_init */
