@@ -19,6 +19,7 @@
 #include <vmalloc.h>
 #include <auxinfo.h>
 #include <argv.h>
+#include <asm/mmu-api.h>
 #include <asm/thread_info.h>
 #include <asm/setup.h>
 #include <asm/page.h>
@@ -32,7 +33,7 @@
 #define MAX_DT_MEM_REGIONS	16
 #define NR_EXTRA_MEM_REGIONS	16
 
-extern unsigned long _etext;
+extern unsigned long _text, _etext;
 
 struct timer_state __timer_state;
 
@@ -47,6 +48,9 @@ struct mem_region *mem_regions = __initial_mem_regions;
 phys_addr_t __phys_offset, __phys_end;
 
 unsigned long dcache_line_size;
+
+extern void exceptions_init(void);
+extern void asm_mmu_disable(void);
 
 int mpidr_to_cpu(uint64_t mpidr)
 {
@@ -95,11 +99,6 @@ static void cpu_init(void)
 	ret = dt_for_each_cpu_node(cpu_set, NULL);
 	assert(ret == 0);
 	set_cpu_online(0, true);
-	/*
-	 * DminLine is log2 of the number of words in the smallest cache line; a
-	 * word is 4 bytes.
-	 */
-	dcache_line_size = 1 << (CTR_DMINLINE(get_ctr()) + 2);
 }
 
 struct mem_region *mem_region_find(phys_addr_t paddr)
@@ -248,13 +247,19 @@ static void timer_save_state(void)
 
 void setup(const void *fdt, phys_addr_t freemem_start)
 {
+	uintptr_t text = (uintptr_t)&_text;
 	void *freemem;
-	const char *bootargs, *tmp;
+	const char *tmp;
 	u32 fdt_size;
 	int ret;
 
 	assert(sizeof(long) == 8 || freemem_start < (3ul << 30));
-	freemem = (void *)(unsigned long)freemem_start;
+	freemem = (void *)(uintptr_t)freemem_start;
+
+	if (target_efi()) {
+		exceptions_init();
+		printf("Load address: %" PRIxPTR "\n", text);
+	}
 
 	/* Move the FDT to the base of free memory */
 	fdt_size = fdt_totalsize(fdt);
@@ -273,8 +278,26 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 		freemem += initrd_size;
 	}
 
-	mem_regions_init();
-	mem_init(PAGE_ALIGN((unsigned long)freemem));
+	freemem_start = PAGE_ALIGN((uintptr_t)freemem);
+
+	/*
+	 * DminLine is log2 of the number of words in the smallest cache line;
+	 * a word is 4 bytes.
+	 */
+	dcache_line_size = 1 << (CTR_DMINLINE(get_ctr()) + 2);
+
+	if (target_efi()) {
+		mem_init(freemem_start);
+		/*
+		 * dcache_line_size must be set and mem_init must be called before
+		 * asm_mmu_disable, because we need __phys_offset, __phys_end, and
+		 * dcache_line_size set to clear and invalidate all memory.
+		 */
+		asm_mmu_disable();
+	} else {
+		mem_regions_init();
+		mem_init(freemem_start);
+	}
 
 	psci_set_conduit();
 	cpu_init();
@@ -291,9 +314,12 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 
 	timer_save_state();
 
-	ret = dt_get_bootargs(&bootargs);
-	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
-	setup_args_progname(bootargs);
+	if (!target_efi()) {
+		const char *bootargs;
+		ret = dt_get_bootargs(&bootargs);
+		assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
+		setup_args_progname(bootargs);
+	}
 
 	if (initrd) {
 		/* environ is currently the only file in the initrd */

@@ -13,6 +13,7 @@
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
 
+#ifndef TARGET_EFI
 .section .init
 
 /*
@@ -65,12 +66,16 @@ start:
 	/* set up exception handling */
 	bl	exceptions_init
 
-	/* complete setup */
+	/* complete setup and run */
 	adrp	x1, stacktop
 	add	x1, x1, :lo12:stacktop
 	bl	setup				// x0 is the addr of the dtb
+	b	run_main
+#endif
 
-	/* run the test */
+.text
+
+run_main:
 	adrp	x0, __argc
 	ldr	w0, [x0, :lo12:__argc]
 	adrp	x1, __argv
@@ -81,14 +86,24 @@ start:
 	bl	exit
 	b	halt
 
-.text
+/*
+ * Used by cpu0 to setup the system and start the actual test.
+ * x0 is the address of the dtb
+ * x1 is the start of the free memory
+ * x2 is the top of the stack
+*/
+.globl primary_entry
+primary_entry:
+	/* set up stack */
+	mov	x4, #1
+	msr	spsel, x4
+	isb
+	sub	x2, x2, 16			// stackptr must be strictly
+						// less than stacktop
+	mov	sp, x2
 
-.globl get_mmu_off
-get_mmu_off:
-	adrp	x0, auxinfo
-	ldr	x0, [x0, :lo12:auxinfo + 8]
-	and	x0, x0, #AUXINFO_MMU_OFF
-	ret
+	bl	setup
+	b	run_main
 
 .globl secondary_entry
 secondary_entry:
@@ -118,6 +133,13 @@ secondary_entry:
 	/* x0 is now the entry function, run it */
 	blr	x0
 	b	do_idle
+
+.globl get_mmu_off
+get_mmu_off:
+	adrp	x0, auxinfo
+	ldr	x0, [x0, :lo12:auxinfo + 8]
+	and	x0, x0, #AUXINFO_MMU_OFF
+	ret
 
 .globl halt
 halt:
