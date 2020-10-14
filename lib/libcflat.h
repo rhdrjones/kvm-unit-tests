@@ -160,4 +160,10 @@ extern void setup_vm(void);
 #define SZ_2M			(1 << 21)
 #define SZ_1G			(1 << 30)
 
+#ifdef TARGET_EFI
+#define target_efi() (true)
+#else
+#define target_efi() (false)
+#endif
+
 #endif

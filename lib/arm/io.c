@@ -84,6 +84,12 @@ void io_init(void)
 
 int putchar(int c)
 {
+	if (target_efi() && c == '\n') {
+		while (readb(uart0_base + UARTFR) & UARTFR_BUSY)
+			;
+		writeb('\r', uart0_base);
+	}
+
 	while (readb(uart0_base + UARTFR) & UARTFR_BUSY)
 		;
 	writeb((unsigned char)c, uart0_base);
@@ -134,8 +140,15 @@ int __getchar(void)
  */
 extern void halt(int code);
 
+extern void efi_exit(int type, int code);
+
 void exit(int code)
 {
+	if (target_efi()) {
+		printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
+		efi_exit(1 /* warm reset */, code);
+	}
+
 	chr_testdev_exit(code);
 	psci_system_off();
 	halt(code);

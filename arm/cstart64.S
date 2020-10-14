@@ -13,6 +13,7 @@
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
 
+#ifndef TARGET_EFI
 .section .init
 
 /*
@@ -80,6 +81,7 @@ start:
 	bl	main
 	bl	exit
 	b	halt
+#endif
 
 .text
 
