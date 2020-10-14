@@ -91,13 +91,27 @@ static void psci_set_conduit(void)
 		assert_msg(false, "Unknown PSCI conduit: %s", method->data);
 }
 
+#include <config.h>
+
 static void cpu_init(void)
 {
 	int ret;
 
 	nr_cpus = 0;
+#ifdef CONFIG_SEATTLE
+	ret = 0;
+	cpu_set(ret, (get_mpidr() | 0) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(1, (get_mpidr() | 1) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(2, (get_mpidr() | (1<<8)) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(3, (get_mpidr() | (1<<8) | 1) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(4, (get_mpidr() | (2<<8)) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(5, (get_mpidr() | (2<<8) | 1) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(6, (get_mpidr() | (3<<8)) & MPIDR_HWID_BITMASK, NULL);
+	cpu_set(7, (get_mpidr() | (3<<8) | 1) & MPIDR_HWID_BITMASK, NULL);
+#else
 	ret = dt_for_each_cpu_node(cpu_set, NULL);
 	assert(ret == 0);
+#endif
 	set_cpu_online(0, true);
 }
 
