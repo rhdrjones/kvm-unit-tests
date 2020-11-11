@@ -1,7 +1,10 @@
 
 SECTIONS
 {
-    .text : { *(.init) *(.text) *(.text.*) }
+    .text : {
+      _text = .;
+      *(.init) *(.text) *(.text.*)
+    }
     . = ALIGN(64K);
     PROVIDE(etext = .);
 

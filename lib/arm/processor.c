@@ -73,12 +73,15 @@ void install_exception_handler(enum vector v, exception_fn fn)
 		ti->exception_handlers[v] = fn;
 }
 
+extern unsigned long _text;
+
 /* Needed to compile with -Wmissing-prototypes */
 void do_handle_exception(enum vector v, struct pt_regs *regs);
 
 void do_handle_exception(enum vector v, struct pt_regs *regs)
 {
 	struct thread_info *ti = thread_info_sp(regs->ARM_sp);
+	uintptr_t text = (uintptr_t)&_text;
 
 	if (ti->flags & TIF_USER_MODE) {
 		if (v < EXCPTN_MAX && ti->exception_handlers[v]) {
@@ -92,6 +95,9 @@ void do_handle_exception(enum vector v, struct pt_regs *regs)
 		ti->exception_handlers[v](regs);
 		return;
 	}
+
+	printf("Load address: %" PRIxPTR "\n", text);
+	printf("PC offset: %" PRIxPTR "\n", (uintptr_t)regs->ARM_pc - text);
 
 	if (v < EXCPTN_MAX)
 		printf("Unhandled exception %d (%s)\n", v, vector_names[v]);
