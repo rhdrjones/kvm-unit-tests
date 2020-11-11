@@ -12,6 +12,7 @@
 #define PTE_SHARED		L_PTE_SHARED
 #define PTE_AF			PTE_EXT_AF
 #define PTE_WBWA		L_PTE_MT_WRITEALLOC
+#define PTE_UNCACHED		L_PTE_MT_UNCACHED
 
 /* See B3.18.7 TLB maintenance operations */
 

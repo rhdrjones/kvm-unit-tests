@@ -11,6 +11,7 @@
 #include <asm/mmu.h>
 #include <asm/setup.h>
 #include <asm/page.h>
+#include <asm/io.h>
 
 #include "alloc_page.h"
 #include "vmalloc.h"
@@ -171,9 +172,7 @@ void *setup_mmu(phys_addr_t phys_end)
 
 	for (r = mem_regions; r->end; ++r) {
 		if (r->flags & MR_F_IO) {
-			/* FIXME: We shouldn't assume we can map sections. */
-			mmu_set_range_sect(mmu_idmap, r->start, r->start, r->end,
-					   __pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
+			continue;
 		} else if (r->flags & MR_F_CODE) {
 			/* armv8 requires code shared between EL1 and EL0 to be read-only */
 			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,
@@ -186,6 +185,21 @@ void *setup_mmu(phys_addr_t phys_end)
 
 	mmu_enable(mmu_idmap);
 	return mmu_idmap;
+}
+
+void __iomem *__ioremap(phys_addr_t phys_addr, size_t size)
+{
+	phys_addr_t paddr_aligned, paddr_end;
+
+	assert(sizeof(long) == 8 || !(phys_addr >> 32));
+
+	paddr_aligned = phys_addr & PAGE_MASK;
+	paddr_end = PAGE_ALIGN(phys_addr + size);
+
+	mmu_set_range_ptes(mmu_idmap, paddr_aligned, paddr_aligned, paddr_end,
+			   __pgprot(PTE_UNCACHED | PTE_USER));
+
+	return (void __iomem *)(unsigned long)phys_addr;
 }
 
 phys_addr_t __virt_to_phys(unsigned long addr)
