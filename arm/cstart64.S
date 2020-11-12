@@ -205,14 +205,14 @@ asm_mmu_enable:
 
 	ret
 
-/* Taken with small changes from arch/arm64/incluse/asm/assembler.h */
+/* Taken with small changes from arch/arm64/include/asm/assembler.h */
 .macro dcache_by_line_op op, domain, start, end, tmp1, tmp2
 	adrp	\tmp1, dcache_line_size
 	ldr	\tmp1, [\tmp1, :lo12:dcache_line_size]
 	sub	\tmp2, \tmp1, #1
 	bic	\start, \start, \tmp2
 9998:
-	dc	\op , \start
+	dc	\op, \start
 	add	\start, \start, \tmp1
 	cmp	\start, \end
 	b.lo	9998b
@@ -221,11 +221,6 @@ asm_mmu_enable:
 
 .globl asm_mmu_disable
 asm_mmu_disable:
-	mrs	x0, sctlr_el1
-	bic	x0, x0, SCTLR_EL1_M
-	msr	sctlr_el1, x0
-	isb
-
 	/* Clean + invalidate the entire memory */
 	adrp	x0, __phys_offset
 	ldr	x0, [x0, :lo12:__phys_offset]
@@ -233,6 +228,22 @@ asm_mmu_disable:
 	ldr	x1, [x1, :lo12:__phys_end]
 	dcache_by_line_op civac, sy, x0, x1, x2, x3
 	isb
+
+	/* Invalidate Icache */
+	ic	iallu
+	isb
+
+	/* Disable cache, Icache and MMU */
+	mrs	x0, sctlr_el1
+	bic	x0, x0, SCTLR_EL1_C
+	bic	x0, x0, SCTLR_EL1_I
+	bic	x0, x0, SCTLR_EL1_M
+	msr	sctlr_el1, x0
+	isb
+
+	/* Invalidate TLB */
+	tlbi	vmalle1
+	dsb	nsh
 
 	ret
 
