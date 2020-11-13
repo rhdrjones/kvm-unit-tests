@@ -130,6 +130,9 @@ all: directories $(shell cd $(SRCDIR) && git rev-parse --verify --short=8 HEAD >
 standalone: all
 	@scripts/mkstandalone.sh
 
+efi: all
+	@scripts/mkefi.sh
+
 install: standalone
 	mkdir -p $(DESTDIR)
 	install tests/* $(DESTDIR)
@@ -147,7 +150,7 @@ efi_clean:
 
 distclean: clean libfdt_clean
 	$(RM) lib/asm lib/config.h config.mak $(TEST_DIR)-run msr.out cscope.* build-head
-	$(RM) -r tests logs logs.old
+	$(RM) -r tests efi-tests logs logs.old
 
 cscope: cscope_dirs = lib lib/libfdt lib/linux $(TEST_DIR) $(ARCH_LIBDIRS) lib/asm-generic
 cscope:

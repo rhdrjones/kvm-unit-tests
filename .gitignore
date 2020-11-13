@@ -17,6 +17,7 @@ cscope.*
 /*-run
 /msr.out
 /tests
+/efi-tests
 /build-head
 /logs/
 /logs.old/
