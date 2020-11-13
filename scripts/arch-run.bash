@@ -256,13 +256,13 @@ env_file ()
 
 	[ ! -f "$KVM_UNIT_TESTS_ENV_OLD" ] && return
 
-	for line in $(grep -E '^[[:blank:]]*[[:alpha:]_][[:alnum:]_]*=' "$KVM_UNIT_TESTS_ENV_OLD"); do
+	while read -r line; do
 		var=${line%%=*}
 		if ! grep -q "^$var=" $KVM_UNIT_TESTS_ENV; then
-			eval export "$line"
+			eval export "$(printf "%q" "$line")"
 			grep "^$var=" <(env) >>$KVM_UNIT_TESTS_ENV
 		fi
-	done
+	done < <(grep -E '^[[:blank:]]*[[:alpha:]_][[:alnum:]_]*=' "$KVM_UNIT_TESTS_ENV_OLD")
 }
 
 env_errata ()
