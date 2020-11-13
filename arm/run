@@ -78,7 +78,15 @@ fi
 
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults $M -cpu $PROCESSOR $chr_testdev $pci_testdev"
-command+=" -display none -serial stdio -kernel"
-command="$(migration_cmd) $(timeout_cmd) $command"
+command+=" -display none -serial stdio"
 
-run_qemu $command "$@"
+if [ "$DTBFILE" ]; then
+	ENVIRON_DEFAULT=n run_qemu $command -machine dumpdtb="$DTBFILE" "$@"
+	ret=$?
+	[ $ret -eq 1 ] && ret=0
+else
+	command="$(migration_cmd) $(timeout_cmd) $command -kernel"
+	run_qemu $command "$@"
+	ret=$?
+fi
+exit $ret
