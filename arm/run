@@ -76,14 +76,19 @@ if $qemu $M -device '?' 2>&1 | grep -q pci-testdev; then
 	pci_testdev="-device pci-testdev"
 fi
 
+[ "$EFI_RUN" ] && mon='mon:'
+
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults $M -cpu $PROCESSOR $chr_testdev $pci_testdev"
-command+=" -display none -serial stdio"
+command+=" -display none -serial ${mon}stdio"
 
 if [ "$DTBFILE" ]; then
 	ENVIRON_DEFAULT=n run_qemu $command -machine dumpdtb="$DTBFILE" "$@"
 	ret=$?
 	[ $ret -eq 1 ] && ret=0
+elif [ "$EFI_RUN" ]; then
+	$command "$@"
+	ret=$?
 else
 	command="$(migration_cmd) $(timeout_cmd) $command -kernel"
 	run_qemu $command "$@"

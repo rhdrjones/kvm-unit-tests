@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ ! -f config.mak ] || [ ! -d efi-tests ]; then
+	echo "run './configure --target-efi && make efi' first. See ./configure -h"
+	exit 2
+fi
+source config.mak
+
+: "${EFI_UEFI:=/usr/share/edk2/aarch64/QEMU_EFI.silent.fd}"
+: "${EFI_SMP:=1}"
+
+EFI_RUN=y $TEST_DIR/run -drive format=raw,file=fat:rw:efi-tests \
+			-bios $EFI_UEFI -smp $EFI_SMP "$@"
