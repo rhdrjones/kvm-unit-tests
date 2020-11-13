@@ -226,14 +226,14 @@ env_add_params ()
 
 env_params ()
 {
-	local qemu have_qemu
+	local qemu have_qemu accel
 	local _ rest
 
 	qemu=$(search_qemu_binary) && have_qemu=1
 
 	if [ "$have_qemu" ]; then
-		if [ -n "$ACCEL" ] || [ -n "$QEMU_ACCEL" ]; then
-			[ -n "$ACCEL" ] && QEMU_ACCEL=$ACCEL
+		if accel=$(get_qemu_accelerator); then
+			QEMU_ACCEL=$accel
 		fi
 		QEMU_VERSION_STRING="$($qemu -h | head -1)"
 		IFS='[ .]' read -r _ _ _ QEMU_MAJOR QEMU_MINOR QEMU_MICRO rest <<<"$QEMU_VERSION_STRING"
@@ -359,6 +359,14 @@ hvf_available ()
 
 get_qemu_accelerator ()
 {
+	if [ "$QEMU_ACCEL" ]; then
+		if [ "$ACCEL" ] && [ "$ACCEL" != "$QEMU_ACCEL" ]; then
+			echo "ACCEL and QEMU_ACCEL both set and don't match" >&2
+			return 2
+		fi
+		ACCEL=$QEMU_ACCEL
+	fi
+
 	if [ "$ACCEL" = "kvm" ] && ! kvm_available; then
 		echo "KVM is needed, but not available on this host" >&2
 		return 2
