@@ -152,7 +152,7 @@ fi
 [ -z "$processor" ] && processor="$arch"
 
 if [ "$processor" = "arm64" ]; then
-    processor="cortex-a57"
+    processor="max"
 elif [ "$processor" = "arm" ]; then
     processor="cortex-a15"
 fi

@@ -8,7 +8,6 @@ if [ -z "$STANDALONE" ]; then
 	source config.mak
 	source scripts/arch-run.bash
 fi
-processor="$PROCESSOR"
 
 ACCEL=$(get_qemu_accelerator) ||
 	exit $?
@@ -16,7 +15,7 @@ ACCEL=$(get_qemu_accelerator) ||
 qemu=$(search_qemu_binary) ||
 	exit $?
 
-if ! $qemu -machine '?' 2>&1 | grep 'ARM Virtual Machine' > /dev/null; then
+if ! $qemu -machine '?' 2>&1 | grep -q 'ARM Virtual Machine'; then
 	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."
 	exit 2
 fi
@@ -24,28 +23,47 @@ fi
 M='-machine virt'
 
 if [ "$ACCEL" = "kvm" ]; then
-	if $qemu $M,\? 2>&1 | grep gic-version > /dev/null; then
-		M+=',gic-version=host'
-	fi
 	if [ "$HOST" = "aarch64" ] || [ "$HOST" = "arm" ]; then
-		processor="host"
+		if [ "$PROCESSOR" = "max" ] || [ "$PROCESSOR" = "cortex-a15" ]; then
+			# host is the same as max, but has been around longer
+			# cortex-a15 is the default for ARCH=arm, so we assume
+			# it comes from there and override it.
+			PROCESSOR="host"
+		fi
 		if [ "$ARCH" = "arm" ] && [ "$HOST" = "aarch64" ]; then
-			processor+=",aarch64=off"
+			PROCESSOR+=",aarch64=off"
 		fi
 	fi
+fi
+
+if [ "$PROCESSOR" = "max" ] && ! $qemu $M -cpu \? 2>&1 | grep -qw max; then
+	PROCESSOR="cortex-a57" # the old arm64 default
+fi
+
+if [ -z "$GIC_VERSION" ]; then
+	if $qemu $M,\? 2>&1 | grep -q gic-version; then
+		if [ "$ACCEL" = "kvm" ]; then
+			GIC_VERSION="host"
+		elif $qemu $M,\? 2>&1 | grep gic-version | grep -qw max; then
+			GIC_VERSION="max"
+		fi
+	fi
+fi
+
+if [ "$GIC_VERSION" ]; then
+	M+=",gic-version=$GIC_VERSION"
 fi
 
 if [ "$ARCH" = "arm" ]; then
 	M+=",highmem=off"
 fi
 
-if ! $qemu $M -device '?' 2>&1 | grep virtconsole > /dev/null; then
+if ! $qemu $M -device '?' 2>&1 | grep -q virtconsole; then
 	echo "$qemu doesn't support virtio-console for chr-testdev. Exiting."
 	exit 2
 fi
 
-if $qemu $M -chardev testdev,id=id -initrd . 2>&1 \
-		| grep backend > /dev/null; then
+if $qemu $M -chardev testdev,id=id -initrd . 2>&1 | grep -q backend; then
 	echo "$qemu doesn't support chr-testdev. Exiting."
 	exit 2
 fi
@@ -54,12 +72,12 @@ chr_testdev='-device virtio-serial-device'
 chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
 
 pci_testdev=
-if $qemu $M -device '?' 2>&1 | grep pci-testdev > /dev/null; then
+if $qemu $M -device '?' 2>&1 | grep -q pci-testdev; then
 	pci_testdev="-device pci-testdev"
 fi
 
 M+=",accel=$ACCEL"
-command="$qemu -nodefaults $M -cpu $processor $chr_testdev $pci_testdev"
+command="$qemu -nodefaults $M -cpu $PROCESSOR $chr_testdev $pci_testdev"
 command+=" -display none -serial stdio -kernel"
 command="$(migration_cmd) $(timeout_cmd) $command"
 
