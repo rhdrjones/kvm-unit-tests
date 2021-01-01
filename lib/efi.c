@@ -193,7 +193,7 @@ static void *efi_get_fdt(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab)
 {
 	EFI_GUID LoadedImageProtocol = LOADED_IMAGE_PROTOCOL;
 	EFI_LOADED_IMAGE *LoadedImage;
-	EFI_STATUS Status;
+	EFI_STATUS Status __unused;
 	CHAR16 Name[256], *Val, *PathName = NULL;
 	UINTN ValSize;
 	void *fdt = NULL;
@@ -252,8 +252,8 @@ static uint64_t efi_set_mem_regions(UINTN *MapKey)
 {
 	UINTN NoEntries, DescriptorSize;
 	UINT32 DescriptorVersion;
-	uintptr_t text = (uintptr_t)&_text, etext = __ALIGN((uintptr_t)&_etext, 4096);
-	uintptr_t data = (uintptr_t)&_data, edata = __ALIGN((uintptr_t)&_edata, 4096);
+	uintptr_t text = (uintptr_t)&_text, etext __unused = __ALIGN((uintptr_t)&_etext, 4096);
+	uintptr_t data = (uintptr_t)&_data, edata __unused = __ALIGN((uintptr_t)&_edata, 4096);
 	uint64_t biggest_conventional = 0, freemem_start = 0;
 	struct mem_region *r;
 	char *buffer;
@@ -327,7 +327,7 @@ EFI_STATUS efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab);
 
 EFI_STATUS efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab)
 {
-	EFI_STATUS Status;
+	EFI_STATUS Status __unused;
 	UINTN MapKey;
 	uint64_t freemem_start;
 	void *fdt;
