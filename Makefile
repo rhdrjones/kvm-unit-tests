@@ -47,15 +47,17 @@ OBJDIRS += $(LIBFDT_objdir)
 
 # EFI App
 ifeq ($(TARGET_EFI),y)
+EFI_INCLUDES = -I /usr/include/efi
 ifeq ($(ARCH_NAME),aarch64)
-EFI_ARCH = aa64
+EFI_INCLUDES += -I /usr/include/efi/aa64
+EFI_INCLUDES += -I /usr/include/efi/aarch64
 else ifeq ($(ARCH_NAME),x86_64)
-EFI_ARCH = x64
+EFI_INCLUDES += -I /usr/include/efi/x64
 else
 $(error Cannot build $(ARCH_NAME) tests as EFI apps)
 endif
 EFI_CRTOBJ = $(TEST_DIR)/efi/crt0-efi-$(ARCH_NAME).o
-EFI_CFLAGS = -DTARGET_EFI -DEFI_DEBUG -I /usr/include/efi -I /usr/include/efi/$(EFI_ARCH) \
+EFI_CFLAGS = -DTARGET_EFI -DEFI_DEBUG $(EFI_INCLUDES) \
 	     -fpic -fshort-wchar -fno-stack-check -fno-merge-all-constants \
 	     -Wno-error=missing-prototypes -Wno-error=strict-prototypes -Wno-error=pragmas
 EFI_LDFLAGS = -nostdlib --defsym=EFI_SUBSYSTEM=0xa -shared -Bsymbolic $(EFI_CRTOBJ) \
