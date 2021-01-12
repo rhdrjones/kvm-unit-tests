@@ -10,6 +10,7 @@
  */
 #include <libcflat.h>
 #include <asm/setup.h>
+#include <asm/thread_info.h>
 #undef ALIGN
 #include <efi.h>
 #include <efilib.h>
@@ -225,6 +226,47 @@ static void *efi_get_fdt(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab)
 	return fdt;
 }
 
+static uint64_t efi_allocate_stack(void)
+{
+	EFI_STATUS Status __unused;
+	EFI_PHYSICAL_ADDRESS Memory, AlignedMemory;
+	UINTN StackPages, AllocationPages, Pages;
+
+	StackPages = EFI_SIZE_TO_PAGES(THREAD_SIZE);
+	ASSERT(THREAD_ALIGNMENT > EFI_PAGE_SIZE);
+
+	// Calculate the total number of pages since alignment is
+	// larger than page size.
+	AllocationPages = StackPages + EFI_SIZE_TO_PAGES(THREAD_ALIGNMENT);
+	ASSERT(AllocationPages > StackPages);
+
+	Status = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages,
+				   EfiBootServicesData,
+				   AllocationPages, &Memory);
+	ASSERT(Status == EFI_SUCCESS);
+
+	AlignedMemory = ((UINTN)Memory + THREAD_SIZE - 1) & THREAD_MASK;
+	ASSERT(AlignedMemory >= Memory);
+	ASSERT((AlignedMemory + THREAD_SIZE) <= (Memory + AllocationPages * EFI_PAGE_SIZE));
+
+	// Free any space at the start of the allocated buffer
+	Pages = EFI_SIZE_TO_PAGES(AlignedMemory - (UINTN)Memory);
+	if (Pages > 0) {
+		Status = uefi_call_wrapper(BS->FreePages, 2, Memory, Pages);
+		ASSERT(Status == EFI_SUCCESS);
+	}
+
+	// Free any space at the end of the allocated buffer
+	Memory = AlignedMemory + THREAD_SIZE;
+	Pages = AllocationPages - StackPages - Pages;
+	if (Pages > 0) {
+		Status = uefi_call_wrapper(BS->FreePages, 2, Memory, Pages);
+		ASSERT(Status == EFI_SUCCESS);
+	}
+
+	return (uint64_t)AlignedMemory;
+}
+
 #if 0
 static const CHAR16 *MemTypes[] = {
 	L"EfiReservedMemoryType",
@@ -323,15 +365,16 @@ static uint64_t efi_set_mem_regions(UINTN *MapKey)
 	return freemem_start;
 }
 
+void primary_entry(void *fdt, uint64_t freemem_start, uint64_t stacktop);
+
 EFI_STATUS efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab);
 
 EFI_STATUS efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab)
 {
 	EFI_STATUS Status __unused;
 	UINTN MapKey;
-	uint64_t freemem_start;
+	uint64_t freemem_start, stacktop;
 	void *fdt;
-	int ret;
 
 	InitializeLib(Image, SysTab);
 
@@ -339,14 +382,14 @@ EFI_STATUS efi_main(EFI_HANDLE Image, EFI_SYSTEM_TABLE *SysTab)
 
 	fdt = efi_get_fdt(Image, SysTab);
 
+	stacktop = (uint64_t)efi_allocate_stack();
+
 	freemem_start = efi_set_mem_regions(&MapKey);
 
 	Status = uefi_call_wrapper(BS->ExitBootServices, 2, Image, MapKey);
 	ASSERT(Status == EFI_SUCCESS);
 
-	setup(fdt, freemem_start);
-	ret = main(__argc, __argv, __environ);
-	exit(ret);
+	primary_entry(fdt, freemem_start, stacktop);
 
 	/* Unreachable */
 	return EFI_UNSUPPORTED;

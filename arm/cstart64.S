@@ -71,9 +71,35 @@ start:
 	add	x1, x1, :lo12:stacktop
 	bl	setup				// x0 is the addr of the dtb
 
+	b	run_test
+#endif
+
+.text
+
+/*
+ * Used by cpu0 to setup the system and start the actual test.
+ * x0 is the address of the dtb
+ * x1 is the start of the free memory
+ * x2 is the top of the stack
+*/
+.global primary_entry
+primary_entry:
+	/* set up stack */
+	mov	x4, #0
+	msr	spsel, x4
+	isb
+	sub	x2, x2, 16			// stackptr must be strictly
+						// less than stacktop
+	mov	sp, x2
+
+	bl	setup
+
+	b	run_test
+
+run_test:
 	/* run the test */
 	adrp	x0, __argc
-	ldr	x0, [x0, :lo12:__argc]
+	ldrsw	x0, [x0, :lo12:__argc]
 	adrp	x1, __argv
 	add	x1, x1, :lo12:__argv
 	adrp	x2, __environ
@@ -81,9 +107,6 @@ start:
 	bl	main
 	bl	exit
 	b	halt
-#endif
-
-.text
 
 .globl get_mmu_off
 get_mmu_off:
